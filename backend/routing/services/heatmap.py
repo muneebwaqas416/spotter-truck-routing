@@ -1,0 +1,49 @@
+"""Corridor risk grid for hours 0-48, reusing the weather cache and the same risk rules."""
+
+import math
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from . import weather
+from .domain import LngLat
+from .risk import assess
+
+MAX_POINTS = 200  # bounds provider load; ~15-30 km spacing for a typical corridor
+HOURS = 48
+
+
+@dataclass(frozen=True)
+class Heatmap:
+    points: list[LngLat]
+    hours: list[datetime]
+    scores: list[list[int | None]]  # [hour][point]; None = forecast unavailable
+
+
+def corridor_heatmap(
+    bbox: tuple[float, float, float, float], start: datetime, load_lb: int
+) -> Heatmap:
+    points = _grid(bbox)
+    found = weather.forecasts(points)
+    first_hour = start.replace(minute=0, second=0, microsecond=0)
+    hours = [first_hour + timedelta(hours=h) for h in range(HOURS + 1)]
+    scores = [
+        [assess(weather.sample_at(found, point, hour), load_lb)[0] for point in points]
+        for hour in hours
+    ]
+    return Heatmap(points, hours, [[None if s is None else int(s) for s in row] for row in scores])
+
+
+def _grid(bbox: tuple[float, float, float, float]) -> list[LngLat]:
+    """Regular grid aligned to the weather cache's 0.1° cells, at most MAX_POINTS points."""
+    min_lon, min_lat, max_lon, max_lat = bbox
+    area = (max_lon - min_lon) * (max_lat - min_lat)
+    step = max(weather.GRID_DEG, math.ceil(math.sqrt(area / MAX_POINTS) * 10) / 10)
+    start_lon = round(min_lon / weather.GRID_DEG) * weather.GRID_DEG
+    start_lat = round(min_lat / weather.GRID_DEG) * weather.GRID_DEG
+    cols = int((max_lon - start_lon) / step) + 1
+    rows = int((max_lat - start_lat) / step) + 1
+    return [
+        (round(start_lon + c * step, 1), round(start_lat + r * step, 1))
+        for r in range(rows)
+        for c in range(cols)
+    ]

@@ -1,0 +1,12 @@
+# Local services for development. The app itself runs with `manage.py runserver` / `npm run dev`.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    # Cache only: no persistence needed, and evict old keys instead of erroring when full.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
