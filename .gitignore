@@ -15,3 +15,7 @@ __pycache__/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Local-only files
+CLAUDE.md
+docker-compose.yml
