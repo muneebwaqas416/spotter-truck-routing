@@ -1,5 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 
+import type { PickingInfo } from '@deck.gl/core'
 import { BitmapLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { MapboxOverlay, type MapboxOverlayProps } from '@deck.gl/mapbox'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
@@ -116,7 +117,9 @@ export function MapView({ analysis, heatmap, showHeatmap, dimmed }: MapViewProps
       capRounded: true,
       jointRounded: true,
       pickable: true,
-      onClick: ({ object }) => object && dispatch(routeSelected(object.id)),
+      onClick: ({ object }: PickingInfo<RouteOption>) => {
+        if (object) dispatch(routeSelected(object.id))
+      },
       updateTriggers: { getColor: activeRouteId, getWidth: activeRouteId },
     }),
     new ScatterplotLayer<CheckpointDatum>({
@@ -131,8 +134,9 @@ export function MapView({ analysis, heatmap, showHeatmap, dimmed }: MapViewProps
       getLineColor: (d) => (d.risk === 'UNKNOWN' ? RISK_STYLES.UNKNOWN.rgb : [255, 255, 255]),
       getFillColor: (d) => (d.risk === 'UNKNOWN' ? [255, 255, 255] : RISK_STYLES[d.risk].rgb),
       pickable: true,
-      onClick: ({ object }) =>
-        object && dispatch(checkpointSelected({ routeId: object.routeId, index: object.index })),
+      onClick: ({ object }: PickingInfo<CheckpointDatum>) => {
+        if (object) dispatch(checkpointSelected({ routeId: object.routeId, index: object.index }))
+      },
       updateTriggers: { getRadius: activeRouteId },
     }),
     analysis &&

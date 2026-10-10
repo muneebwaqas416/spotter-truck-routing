@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Clock, Route, Weight } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState, type ChangeEvent, type FocusEvent } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { InputIcon } from '@/components/InputIcon'
@@ -165,8 +165,9 @@ export function TripForm({ initialRequest, isLoading, serverErrors, canClose }: 
             aria-describedby={errors.loadLb ? `${ids.load}-error` : undefined}
             className="h-10 bg-white pr-10 pl-9 font-mono"
             {...register('loadLb', {
-              onChange: (event) => setValue('loadLb', event.target.value.replace(/[^\d,]/g, '')),
-              onBlur: (event) => {
+              onChange: (event: ChangeEvent<HTMLInputElement>) =>
+                setValue('loadLb', event.target.value.replace(/[^\d,]/g, '')),
+              onBlur: (event: FocusEvent<HTMLInputElement>) => {
                 const value = parseLoad(event.target.value)
                 if (Number.isInteger(value) && value > 0) {
                   setValue('loadLb', value.toLocaleString('en-US'))
