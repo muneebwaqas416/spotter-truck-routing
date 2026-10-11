@@ -59,7 +59,13 @@ export function PlaceAutocomplete({
         {label}
       </Label>
 
-      <Combobox value={value} onChange={(selected: string | null) => onChange(selected ?? '')}>
+      <Combobox
+        value={value} // Headless UI reports null when the typed text isn't a picked suggestion (e.g. on blur or
+        // Escape). Free text already arrives through the input's onChange, so null must not clear it.
+        onChange={(selected: string | null) => {
+          if (selected !== null) onChange(selected)
+        }}
+      >
         <div className="relative">
           <InputIcon icon={MapPin} />
           {/* Headless UI drives the combobox behaviour; shadcn's Input provides the look. */}

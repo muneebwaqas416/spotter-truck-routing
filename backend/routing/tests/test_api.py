@@ -153,7 +153,7 @@ def test_heatmap_returns_grid_for_49_hours(providers):
     assert body["scores"][0][0] == 3  # Severe
 
 
-@pytest.mark.parametrize("bbox", ["1,2,3", "-104,39,-112,41", "-140,20,-100,50"])
+@pytest.mark.parametrize("bbox", ["1,2,3", "-104,39,-112,41", "-170,10,-50,70"])
 def test_heatmap_rejects_bad_bbox(bbox):
     response = APIClient().get(
         reverse("routing:heatmap"), {"bbox": bbox, "start": timezone.now().isoformat()}
@@ -223,3 +223,13 @@ def test_routes_carry_ranking_notes_and_detour_labels(providers):
     notes = {route["id"]: route["ranking_note"] for route in body["routes"]}
     assert notes[best] is None
     assert all(note for route_id, note in notes.items() if route_id != best)
+
+
+def test_heatmap_accepts_cross_country_corridor(providers):
+    """Regression: Denver → East Coast (31.8° wide) was rejected by a 20° area limit."""
+    response = APIClient().get(
+        reverse("routing:heatmap"),
+        {"bbox": "-105.34,38.25,-73.51,42.26", "start": timezone.now().isoformat()},
+    )
+    assert response.status_code == 200
+    assert len(response.json()["points"]) <= 200

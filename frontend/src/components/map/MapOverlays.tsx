@@ -3,7 +3,6 @@ import { useId } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { HEATMAP_COLOR_RANGE } from '@/lib/risk'
@@ -59,27 +58,45 @@ export type HeatmapStatus = 'ready' | 'loading' | 'error'
 interface HeatmapToggleProps {
   enabled: boolean
   status: HeatmapStatus
+  /** Why the heatmap failed (shown on hover and to screen readers). */
+  errorMessage?: string
   onToggle: (enabled: boolean) => void
+  onRetry: () => void
 }
 
 /** The switch shows exactly what the map shows: on + status, so "on" never looks like "missing". */
-export function HeatmapToggle({ enabled, status, onToggle }: HeatmapToggleProps) {
+export function HeatmapToggle({
+  enabled,
+  status,
+  errorMessage,
+  onToggle,
+  onRetry,
+}: HeatmapToggleProps) {
   const id = useId()
   const gradient = `linear-gradient(to right, ${HEATMAP_COLOR_RANGE.map(([r, g, b]) => `rgb(${r},${g},${b})`).join(',')})`
   return (
     <div className="pointer-events-auto flex items-center gap-3 rounded-xl border bg-white/95 px-3 py-2 shadow-md">
-      <Label htmlFor={id} className="cursor-pointer">
+      {/* aria-labelledby, not <label htmlFor>: only the switch itself toggles, never the text. */}
+      <span id={id} className="text-sm font-medium">
         Weather heatmap
-      </Label>
-      <Switch id={id} checked={enabled} onCheckedChange={onToggle} />
+      </span>
+      <Switch aria-labelledby={id} checked={enabled} onCheckedChange={onToggle} />
       {enabled && status === 'loading' && (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Spinner className="size-3.5" /> Loading
         </span>
       )}
       {enabled && status === 'error' && (
-        <span className="flex items-center gap-1 text-xs text-destructive">
+        <span className="flex items-center gap-1 text-xs text-destructive" title={errorMessage}>
           <CircleAlert aria-hidden className="size-3.5" /> Unavailable
+          <Button
+            variant="link"
+            size="xs"
+            className="h-auto p-0 text-destructive"
+            onClick={onRetry}
+          >
+            Retry
+          </Button>
         </span>
       )}
       {enabled && status === 'ready' && (

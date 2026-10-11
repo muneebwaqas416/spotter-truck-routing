@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import pytest
 
 from routing.services.domain import Checkpoint, WeatherSample
+from routing.services.heatmap import MAX_POINTS, _grid
 from routing.services.risk import RiskLevel, assess
 from routing.services.scoring import explain, rank, route_metrics, why_not
 
@@ -77,3 +78,17 @@ def test_why_not_names_severity_before_average():
         "More Severe miles: 10 vs 0 on Route B. "
         "Safety ranks ahead of time, though it is 1 h faster."
     )
+
+
+@pytest.mark.parametrize(
+    "bbox",
+    [
+        (-105.34, 38.25, -73.51, 42.26),
+        (-125, 25, -66, 49),
+        (-112, 39, -104.5, 41.5),
+        (0, 0, 0.5, 0.5),
+    ],
+)
+def test_heatmap_grid_never_exceeds_point_cap(bbox):
+    points = _grid(bbox)
+    assert 0 < len(points) <= MAX_POINTS

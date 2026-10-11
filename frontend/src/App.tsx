@@ -53,7 +53,9 @@ export default function App() {
                   <HeatmapToggle
                     enabled={heatmap.enabled}
                     status={heatmap.isLoading ? 'loading' : heatmap.error ? 'error' : 'ready'}
+                    errorMessage={heatmap.error && describeError(heatmap.error).title}
                     onToggle={(enabled) => dispatch(heatmapEnabledChanged(enabled))}
+                    onRetry={() => void heatmap.refetch()}
                   />
                 </div>
               )}

@@ -37,11 +37,14 @@ def _grid(bbox: tuple[float, float, float, float]) -> list[LngLat]:
     """Regular grid aligned to the weather cache's 0.1° cells, at most MAX_POINTS points."""
     min_lon, min_lat, max_lon, max_lat = bbox
     area = (max_lon - min_lon) * (max_lat - min_lat)
-    step = max(weather.GRID_DEG, math.ceil(math.sqrt(area / MAX_POINTS) * 10) / 10)
     start_lon = round(min_lon / weather.GRID_DEG) * weather.GRID_DEG
     start_lat = round(min_lat / weather.GRID_DEG) * weather.GRID_DEG
-    cols = int((max_lon - start_lon) / step) + 1
-    rows = int((max_lat - start_lat) / step) + 1
+    step = max(weather.GRID_DEG, math.ceil(math.sqrt(area / MAX_POINTS) * 10) / 10)
+    # Edge rows/columns can push the count over the cap; widen the spacing until it fits.
+    while (cols := int((max_lon - start_lon) / step) + 1) * (
+        rows := int((max_lat - start_lat) / step) + 1
+    ) > MAX_POINTS:
+        step = round(step + weather.GRID_DEG, 1)
     return [
         (round(start_lon + c * step, 1), round(start_lat + r * step, 1))
         for r in range(rows)

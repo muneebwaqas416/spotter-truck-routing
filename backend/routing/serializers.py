@@ -11,7 +11,9 @@ from routing.services.heatmap import Heatmap
 from routing.services.scoring import LEVEL_KEYS
 
 MAX_LOAD_LB = 80_000  # US federal gross weight limit
-MAX_BBOX_DEGREES = 20
+# Sanity bound only (continental North America). Provider load is bounded by the heatmap's
+# point cap (heatmap.MAX_POINTS), so long trips just get a coarser grid.
+MAX_BBOX_DEGREES = 60
 
 LEVEL_NAMES = LEVEL_KEYS[:-1]  # index → name for known levels
 
