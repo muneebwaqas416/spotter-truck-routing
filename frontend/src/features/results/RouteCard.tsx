@@ -1,13 +1,15 @@
 import { Ban, CloudOff } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { RISK_STYLES } from '@/lib/risk'
+import { RISK_ORDER, RISK_STYLES } from '@/lib/risk'
 
-import type { RouteOption } from '@/redux/types'
+import type { RiskLevel, RouteOption } from '@/redux/types'
 import { addSeconds, formatClock, formatDuration, formatMiles } from '@/lib/format'
 
 import { milesAt } from './derive'
 import { RiskBar } from './RiskBar'
+
+const KNOWN_LEVELS: RiskLevel[] = RISK_ORDER.filter((level) => level !== 'UNKNOWN')
 import { cn } from '@/lib/utils'
 
 interface RouteCardProps {
@@ -15,6 +17,8 @@ interface RouteCardProps {
   departureTime: string
   /** Arrival times are shown in the destination's zone. */
   arrivalTimeZone: string
+  /** Set for generated detours: extra distance vs the provider's route, in percent. */
+  detourExtraPct?: number
   selected: boolean
   badge?: 'recommended' | 'least-risky'
   isFastest: boolean
@@ -30,6 +34,7 @@ export function RouteCard({
   route,
   departureTime,
   arrivalTimeZone,
+  detourExtraPct,
   selected,
   badge,
   isFastest,
@@ -74,6 +79,11 @@ export function RouteCard({
               Fastest
             </Badge>
           )}
+          {detourExtraPct !== undefined && (
+            <Badge variant="outline" className="text-muted-foreground">
+              Detour +{detourExtraPct}%
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -93,29 +103,30 @@ export function RouteCard({
 
       <RiskBar route={route} />
 
-      <dl className="tabular grid grid-cols-4 gap-1 font-mono text-xs">
-        <Stat
-          label="No Travel"
-          value={noTravel}
-          color={noTravel > 0 ? RISK_STYLES.NO_TRAVEL.color : undefined}
-        />
-        <Stat
-          label="Severe"
-          value={milesAt(route, 'SEVERE')}
-          color={milesAt(route, 'SEVERE') > 0 ? RISK_STYLES.SEVERE.color : undefined}
-        />
-        <Stat
-          label="High"
-          value={milesAt(route, 'HIGH')}
-          color={milesAt(route, 'HIGH') > 0 ? RISK_STYLES.HIGH.color : undefined}
-        />
-        <div>
-          <dt className="text-muted-foreground">Avg risk</dt>
-          <dd className="font-semibold text-foreground">
-            {route.metrics.avg_risk?.toFixed(1) ?? '—'}
-          </dd>
-        </div>
+      {/* Every level, Low → No Travel, so the average and the bar are explainable at a glance. */}
+      <dl className="tabular grid grid-cols-5 gap-1 font-mono text-2xs">
+        {KNOWN_LEVELS.map((level) => (
+          <Stat
+            key={level}
+            label={RISK_STYLES[level].label}
+            value={milesAt(route, level)}
+            color={milesAt(route, level) > 0 ? RISK_STYLES[level].color : undefined}
+          />
+        ))}
       </dl>
+      <p className="tabular font-mono text-xs text-muted-foreground">
+        Avg risk{' '}
+        <span className="font-semibold text-foreground">
+          {route.metrics.avg_risk?.toFixed(2) ?? '—'}
+        </span>{' '}
+        <span className="font-sans">(0 = Low … 4 = No Travel)</span>
+      </p>
+
+      {route.ranking_note && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Not recommended:</span> {route.ranking_note}
+        </p>
+      )}
 
       {(noTravel > 0 || unknown > 0) && (
         <div className="flex flex-wrap gap-1.5">

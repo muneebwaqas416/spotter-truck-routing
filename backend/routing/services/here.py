@@ -29,8 +29,11 @@ TRUCK_TARE_LB = 30_000
 WEIGHT_BUCKET_LB = 5_000
 KG_PER_LB = 0.45359237
 METERS_PER_MILE = 1609.344
-# Detour waypoints sit this fraction of the trip length off the midpoint, either side.
-DETOUR_OFFSET_FRACTION = 0.15
+# When the provider returns fewer than 3 routes, alternatives are forced through a waypoint off
+# the midpoint. Closer offsets are tried first so a generated detour stays as realistic as possible.
+DETOUR_OFFSET_FRACTIONS = (0.08, 0.15)
+# A generated detour more than this much longer than the provider's route isn't a real option.
+MAX_DETOUR_RATIO = 1.5
 
 
 def geocode(query: str) -> Place:
@@ -53,7 +56,7 @@ def routes(origin: Place, destination: Place, departure: datetime, load_lb: int)
     gross_lb = math.ceil((TRUCK_TARE_LB + load_lb) / WEIGHT_BUCKET_LB) * WEIGHT_BUCKET_LB
     hour = departure.replace(minute=0, second=0, microsecond=0).isoformat()
     key = (
-        f"v1:route:{origin.position[0]:.4f},{origin.position[1]:.4f}:"
+        f"v2:route:{origin.position[0]:.4f},{origin.position[1]:.4f}:"
         f"{destination.position[0]:.4f},{destination.position[1]:.4f}:{gross_lb}:{hour}"
     )
     return get_or_fetch(
@@ -109,12 +112,15 @@ def _routes_with_fallbacks(
     )
     if not found:
         raise NoRouteFound()
-    for via in _detour_waypoints(found[0]):
-        if len(found) >= ROUTES_WANTED:
-            break
-        for path in _request_routes(origin, destination, departure, gross_lb, via=via):
-            if not any(_same_route(path, existing) for existing in found):
-                found.append(replace(path, is_fallback_alternative=True))
+    primary = found[0]
+    for fraction in DETOUR_OFFSET_FRACTIONS:
+        for via in _detour_waypoints(primary, fraction):
+            if len(found) >= ROUTES_WANTED:
+                return found
+            for path in _request_routes(origin, destination, departure, gross_lb, via=via):
+                too_long = path.distance_mi > MAX_DETOUR_RATIO * primary.distance_mi
+                if not too_long and not any(_same_route(path, other) for other in found):
+                    found.append(replace(path, is_fallback_alternative=True))
     return found[:ROUTES_WANTED]
 
 
@@ -184,14 +190,14 @@ def _vertex_times(coords: list[LngLat], spans: list[dict], total_s: float) -> li
     return times
 
 
-def _detour_waypoints(route: RoutePath) -> list[LngLat]:
+def _detour_waypoints(route: RoutePath, fraction: float) -> list[LngLat]:
     """Two points either side of the route's midpoint, to force genuinely different routes."""
     (lon0, lat0), (lon1, lat1) = route.coordinates[0], route.coordinates[-1]
     mid_lon, mid_lat = route.coordinates[len(route.coordinates) // 2]
     dx, dy = lon1 - lon0, lat1 - lat0
     length = math.hypot(dx, dy) or 1.0
     nx, ny = -dy / length, dx / length
-    offset = DETOUR_OFFSET_FRACTION * length
+    offset = fraction * length
     return [
         (mid_lon + nx * offset, mid_lat + ny * offset),
         (mid_lon - nx * offset, mid_lat - ny * offset),

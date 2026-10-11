@@ -84,6 +84,7 @@ def analysis_payload(analysis: Analysis) -> dict:
                 "label": route.label,
                 "geometry": _simplify(route.path.coordinates),
                 "is_fallback_alternative": route.path.is_fallback_alternative,
+                "ranking_note": analysis.ranking_notes.get(route.id),
                 "metrics": {
                     "distance_mi": round(route.metrics.distance_mi, 1),
                     "duration_s": round(route.metrics.duration_s),

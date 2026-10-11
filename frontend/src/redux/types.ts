@@ -68,6 +68,8 @@ export interface RouteOption {
   checkpoints: Checkpoint[]
   /** True when generated via a detour waypoint because the router returned < 3 routes. */
   is_fallback_alternative: boolean
+  /** Why this route ranked below the recommendation; null for the recommended route. */
+  ranking_note: string | null
 }
 
 export interface Recommendation {

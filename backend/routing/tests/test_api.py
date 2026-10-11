@@ -205,3 +205,21 @@ def test_departure_outside_forecast_window_is_a_field_error(providers):
     response = analyze(payload(departure_time=too_far))
     assert response.status_code == 400
     assert response.json() == {"departure_time": ["Forecasts cover the next 16 days."]}
+
+
+def test_routes_carry_ranking_notes_and_detour_labels(providers):
+    providers["routing"].mock(
+        side_effect=[
+            httpx.Response(200, json={"routes": three_routes()["routes"][:1]}),
+            httpx.Response(200, json={"routes": three_routes()["routes"][1:2]}),
+            httpx.Response(200, json={"routes": three_routes()["routes"][2:3]}),
+        ]
+    )
+    body = analyze(payload()).json()
+
+    labels = {route["id"]: route["label"] for route in body["routes"]}
+    assert labels == {"A": "Route A", "B": "Route B (detour)", "C": "Route C (detour)"}
+    best = body["recommendation"]["route_id"]
+    notes = {route["id"]: route["ranking_note"] for route in body["routes"]}
+    assert notes[best] is None
+    assert all(note for route_id, note in notes.items() if route_id != best)

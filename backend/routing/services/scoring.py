@@ -72,8 +72,30 @@ def rank(metrics_by_route: dict[str, RouteMetrics]) -> list[str]:
     return sorted(metrics_by_route, key=lambda route_id: rank_key(metrics_by_route[route_id]))
 
 
+def why_not(route: RouteMetrics, best: RouteMetrics, best_label: str) -> str:
+    """Why `route` ranked below `best`: the deciding criterion, plus any trade-off it lost."""
+    for label, getter in CRITERIA:
+        ours, theirs = getter(route), getter(best)
+        if ours == theirs:
+            continue
+        if label == "travel time":
+            return f"Same weather risk as {best_label}, but {_duration(ours - theirs)} slower."
+        if label == "average risk":
+            reason = (
+                f"Higher average risk ({ours:.2f} vs {theirs:.2f} on {best_label}): "
+                f"{_worst_miles(route)}."
+            )
+        else:
+            reason = f"More {label}: {ours:.0f} vs {theirs:.0f} on {best_label}."
+        if route.duration_s < best.duration_s:
+            saved = _duration(best.duration_s - route.duration_s)
+            reason += f" Safety ranks ahead of time, though it is {saved} faster."
+        return reason
+    return f"Equivalent to {best_label}."
+
+
 def explain(best: RouteMetrics, runner_up: RouteMetrics | None, runner_up_label: str) -> str:
-    """One sentence naming the criterion that decided the ranking."""
+    """One sentence on why the best route beat the runner-up."""
     if runner_up is None:
         return "Only one route was available."
     for label, getter in CRITERIA:
@@ -85,3 +107,20 @@ def explain(best: RouteMetrics, runner_up: RouteMetrics | None, runner_up_label:
                 return f"Lower average risk ({ours:.2f} vs {theirs:.2f} on {runner_up_label})."
             return f"Fewer {label}: {ours:.0f} vs {theirs:.0f} on {runner_up_label}."
     return f"Equivalent to {runner_up_label}."
+
+
+def _worst_miles(metrics: RouteMetrics) -> str:
+    """e.g. "30 Moderate miles" — the most severe non-Low level present."""
+    for level in reversed(list(RiskLevel)):
+        miles = metrics.miles_by_level[level.name]
+        if level > RiskLevel.LOW and miles > 0:
+            return f"{miles:.0f} {level.name.replace('_', ' ').title()} miles"
+    return "more weather exposure"
+
+
+def _duration(seconds: float) -> str:
+    minutes = round(seconds / 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours and minutes:
+        return f"{hours} h {minutes} min"
+    return f"{hours} h" if hours else f"{minutes} min"

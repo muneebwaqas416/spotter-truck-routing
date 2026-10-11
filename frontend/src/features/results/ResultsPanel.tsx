@@ -7,7 +7,13 @@ import { analysisSubmitted, editTrip, routeSelected } from '@/features/trip/trip
 import { addHours, toLocalInputValue } from '@/lib/datetime'
 import { formatClock, formatDurationDelta } from '@/lib/format'
 
-import { fastestRouteId, hasNoSafeRoute, recommendedRoute, resultNotices } from './derive'
+import {
+  detourExtraPct,
+  fastestRouteId,
+  hasNoSafeRoute,
+  recommendedRoute,
+  resultNotices,
+} from './derive'
 import { RouteCard } from './RouteCard'
 
 const DELAY_SUGGESTION_HOURS = 6
@@ -79,9 +85,14 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
             Unknown. Risk may be understated.
           </StatusAlert>
         ) : (
-          <StatusAlert key={`f-${notice.routeLabel}`} tone="info">
-            {notice.routeLabel} uses a detour waypoint because the router returned fewer than 3
-            routes.
+          <StatusAlert key="detours" tone="info" title="Generated detours">
+            The routing provider found {notice.providerRoutes} truck{' '}
+            {notice.providerRoutes === 1 ? 'route' : 'routes'} for this trip.{' '}
+            {notice.detours
+              .map((detour) => `${detour.label.replace(' (detour)', '')} (+${detour.extraPct}%)`)
+              .join(' and ')}{' '}
+            {notice.detours.length === 1 ? 'is' : 'are'} forced through a waypoint to show an
+            alternative, so treat {notice.detours.length === 1 ? 'it' : 'them'} as what-if options.
           </StatusAlert>
         ),
       )}
@@ -103,6 +114,7 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
             route={route}
             departureTime={analysis.departure_time}
             arrivalTimeZone={analysis.destination.time_zone}
+            detourExtraPct={detourExtraPct(route, analysis.routes)}
             selected={route.id === activeRouteId}
             badge={
               route.id === best?.id ? (noSafeRoute ? 'least-risky' : 'recommended') : undefined

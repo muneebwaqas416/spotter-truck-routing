@@ -69,21 +69,34 @@ def test_routes_parse_truck_alternatives_with_timings():
 
 
 @respx.mock
-def test_missing_alternatives_are_filled_with_detours():
-    single = {"routes": three_routes()["routes"][:1]}
-    detour = {"routes": three_routes()["routes"][1:2]}
+def test_missing_alternatives_use_closest_valid_detours():
+    primary = here_route([DENVER, (41.3, -105.6), SLC], 9 * 3600, 880_000)  # ~547 mi
+    near = here_route([DENVER, (40.5, -106.8), SLC], 9 * 3600, 900_000)  # +2%
+    absurd = here_route([DENVER, (38.0, -108.0), SLC], 20 * 3600, 1_400_000)  # +59%: rejected
+    farther = here_route([DENVER, (39.1, -108.5), SLC], 10 * 3600, 1_000_000)  # +14%
     route = respx.get(settings.HERE_ROUTING_URL).mock(
         side_effect=[
-            httpx.Response(200, json=single),
-            httpx.Response(200, json=detour),
-            httpx.Response(200, json=single),
+            httpx.Response(200, json={"routes": [primary]}),
+            httpx.Response(200, json={"routes": [near]}),
+            httpx.Response(200, json={"routes": [absurd]}),
+            httpx.Response(200, json={"routes": [farther]}),
         ]
     )
 
     paths = here.routes(ORIGIN, DESTINATION, DEPARTURE, 42_000)
 
-    assert [p.is_fallback_alternative for p in paths] == [False, True]  # duplicate detour dropped
-    assert "via" in route.calls[1].request.url.params
+    assert [round(p.distance_mi) for p in paths] == [547, 559, 621]
+    assert [p.is_fallback_alternative for p in paths] == [False, True, True]
+    # Closer waypoints (8% offset) are requested before farther ones (15%).
+    offsets = [_via_offset(call.request) for call in route.calls[1:]]
+    assert offsets[0] == pytest.approx(offsets[1])  # both sides at 8%
+    assert offsets[2] > offsets[0]  # then 15%
+
+
+def _via_offset(request: httpx.Request) -> float:
+    lat, lng = (float(v) for v in request.url.params["via"].split("!")[0].split(","))
+    mid_lng, mid_lat = -105.6, 41.3  # primary route's middle vertex
+    return ((lat - mid_lat) ** 2 + (lng - mid_lng) ** 2) ** 0.5
 
 
 @respx.mock

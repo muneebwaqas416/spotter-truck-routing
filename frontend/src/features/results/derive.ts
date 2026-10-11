@@ -22,7 +22,7 @@ export function hasNoSafeRoute(analysis: AnalyzeResponse): boolean {
 
 export type Notice =
   | { kind: 'unknown-weather'; routeLabel: string; miles: number }
-  | { kind: 'fallback-route'; routeLabel: string }
+  | { kind: 'detours'; providerRoutes: number; detours: { label: string; extraPct: number }[] }
 
 export function resultNotices(analysis: AnalyzeResponse): Notice[] {
   const notices: Notice[] = []
@@ -31,11 +31,27 @@ export function resultNotices(analysis: AnalyzeResponse): Notice[] {
     if (unknown > 0)
       notices.push({ kind: 'unknown-weather', routeLabel: route.label, miles: unknown })
   }
-  for (const route of analysis.routes) {
-    if (route.is_fallback_alternative)
-      notices.push({ kind: 'fallback-route', routeLabel: route.label })
+  const detours = analysis.routes.filter((route) => route.is_fallback_alternative)
+  if (detours.length > 0) {
+    notices.push({
+      kind: 'detours',
+      providerRoutes: analysis.routes.length - detours.length,
+      detours: detours.map((route) => ({
+        label: route.label,
+        extraPct: detourExtraPct(route, analysis.routes) ?? 0,
+      })),
+    })
   }
   return notices
+}
+
+/** How much longer a generated detour is than the shortest provider route, in percent. */
+export function detourExtraPct(route: RouteOption, routes: RouteOption[]): number | undefined {
+  if (!route.is_fallback_alternative) return undefined
+  const provider = routes.filter((r) => !r.is_fallback_alternative)
+  const shortest = Math.min(...provider.map((r) => r.metrics.distance_mi))
+  if (!Number.isFinite(shortest) || shortest <= 0) return undefined
+  return Math.round((route.metrics.distance_mi / shortest - 1) * 100)
 }
 
 export function routesBBox(routes: RouteOption[]): BBox | undefined {

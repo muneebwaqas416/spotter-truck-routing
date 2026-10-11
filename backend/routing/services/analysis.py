@@ -10,7 +10,7 @@ from . import here, timezones, weather
 from .checkpoints import sample_checkpoints
 from .domain import Checkpoint, Place, RoutePath
 from .risk import assess
-from .scoring import RouteMetrics, explain, rank, route_metrics
+from .scoring import RouteMetrics, explain, rank, route_metrics, why_not
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,8 @@ class Analysis:
     routes: list[AnalyzedRoute]
     recommended_route_id: str
     reason: str
+    # route id → why it ranked below the recommendation (absent for the recommended route)
+    ranking_notes: dict[str, str]
     forecast_fetched_at: datetime | None
 
 
@@ -54,7 +56,10 @@ def analyze(
         routes.append(
             AnalyzedRoute(
                 id=letter,
-                label=f"Route {letter}",
+                # Generated detours are labelled so they never pass as provider alternatives.
+                label=f"Route {letter} (detour)"
+                if path.is_fallback_alternative
+                else f"Route {letter}",
                 path=path,
                 checkpoints=scored,
                 metrics=route_metrics(scored, path.distance_mi, path.duration_s),
@@ -77,6 +82,10 @@ def analyze(
         reason=explain(
             best.metrics, runner_up and runner_up.metrics, runner_up.label if runner_up else ""
         ),
+        ranking_notes={
+            route_id: why_not(by_id[route_id].metrics, best.metrics, best.label)
+            for route_id in order[1:]
+        },
         forecast_fetched_at=min((f.fetched_at for f in found.values()), default=None),
     )
 
