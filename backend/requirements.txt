@@ -3,5 +3,8 @@ djangorestframework==3.18.3
 django-cors-headers==4.9.0
 django-environ==0.14.0
 httpx==0.28.1
+flexpolyline==0.1.0
 redis==8.1.0
 gunicorn==26.2.0
+# IANA timezone data for zoneinfo on hosts without a system tz database.
+tzdata==2026.5
