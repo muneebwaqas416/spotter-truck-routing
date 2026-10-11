@@ -9,15 +9,6 @@ export function toLocalInputValue(date: Date): string {
   )}:${pad(date.getMinutes())}`
 }
 
-/** Local input value → ISO 8601 with the local UTC offset, e.g. 2026-10-10T06:00:00-06:00. */
-export function localInputToIso(value: string): string {
-  const date = new Date(value)
-  const offsetMinutes = -date.getTimezoneOffset()
-  const sign = offsetMinutes >= 0 ? '+' : '-'
-  const abs = Math.abs(offsetMinutes)
-  return `${toLocalInputValue(date)}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
-}
-
 /** Next full hour from now: a sensible default departure. */
 export function nextFullHour(now = new Date()): Date {
   const next = new Date(now)

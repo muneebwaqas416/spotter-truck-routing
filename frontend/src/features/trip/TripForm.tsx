@@ -47,7 +47,8 @@ function defaultValues(request: AnalyzeRequest | null): TripFormValues {
   return {
     origin: request.origin,
     destination: request.destination,
-    departure: toLocalInputValue(new Date(request.departure_time)),
+    // Already wall-clock time at the origin: show it as entered.
+    departure: request.departure_time.slice(0, 16),
     loadLb: request.load_lb.toLocaleString('en-US'),
     intervalMi: request.interval_mi,
   }
@@ -129,7 +130,10 @@ export function TripForm({ initialRequest, isLoading, serverErrors, canClose }: 
       />
 
       <div className="space-y-1.5">
-        <Label htmlFor={ids.departure}>Departure</Label>
+        <Label htmlFor={ids.departure}>
+          Departure{' '}
+          <span className="font-normal text-muted-foreground">(local time at origin)</span>
+        </Label>
         <div className="relative">
           <InputIcon icon={Clock} />
           <Input

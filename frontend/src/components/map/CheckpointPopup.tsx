@@ -8,10 +8,17 @@ import type { Checkpoint } from '@/redux/types'
 interface CheckpointPopupProps {
   checkpoint: Checkpoint
   routeLabel: string
+  /** Trip times are shown in the origin's zone. */
+  timeZone: string
   onClose: () => void
 }
 
-export function CheckpointPopup({ checkpoint, routeLabel, onClose }: CheckpointPopupProps) {
+export function CheckpointPopup({
+  checkpoint,
+  routeLabel,
+  timeZone,
+  onClose,
+}: CheckpointPopupProps) {
   const { weather } = checkpoint
   const unknown = checkpoint.risk === 'UNKNOWN'
   return (
@@ -40,12 +47,14 @@ export function CheckpointPopup({ checkpoint, routeLabel, onClose }: CheckpointP
       <div className="tabular rounded-md bg-muted/50 px-2.5 py-2 font-mono text-xs">
         <div className="flex justify-between">
           <span className="text-muted-foreground">ETA</span>
-          <span className="font-semibold text-foreground">{formatDateTime(checkpoint.eta)}</span>
+          <span className="font-semibold text-foreground">
+            {formatDateTime(checkpoint.eta, timeZone)}
+          </span>
         </div>
         {weather.forecast_time && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Forecast hour</span>
-            <span>{formatClock(weather.forecast_time)}</span>
+            <span>{formatClock(weather.forecast_time, timeZone)}</span>
           </div>
         )}
       </div>

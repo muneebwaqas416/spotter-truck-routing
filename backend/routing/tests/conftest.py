@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import flexpolyline
 import httpx
 import pytest
+import respx
 from django.core.cache import cache
 from django.test import override_settings
 
@@ -15,8 +16,12 @@ HERE_KEY = "test-key"
 def _isolated(settings):
     cache.clear()
     settings.HERE_API_KEY = HERE_KEY
-    with override_settings(
-        REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_CLASSES": []}
+    # Outer mock with no routes: any HTTP call a test didn't explicitly mock fails loudly.
+    with (
+        respx.mock(assert_all_called=False),
+        override_settings(
+            REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_CLASSES": []}
+        ),
     ):
         yield
     cache.clear()

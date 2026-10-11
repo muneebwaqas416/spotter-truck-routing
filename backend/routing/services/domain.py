@@ -11,6 +11,7 @@ LngLat = tuple[float, float]
 class Place:
     label: str
     position: LngLat
+    time_zone: str = "UTC"  # IANA name, e.g. "America/Denver"
 
 
 @dataclass(frozen=True)

@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 
 interface ForecastSliderProps {
   start: string
+  /** Labels use the trip's origin zone. */
+  timeZone: string
   hour: number
   onHourChange: (hour: number) => void
   isLoading: boolean
@@ -26,6 +28,7 @@ const PLAY_STEP_MS = 600
 
 export function ForecastSlider({
   start,
+  timeZone,
   hour,
   onHourChange,
   isLoading,
@@ -72,7 +75,7 @@ export function ForecastSlider({
             variant="outline"
             className="tabular border-primary/20 bg-primary/5 font-mono text-primary"
           >
-            +{hour}h · {formatDateTime(at)}
+            +{hour}h · {formatDateTime(at, timeZone)}
           </Badge>
           <div className="ml-auto flex gap-1">
             <Button
@@ -104,7 +107,7 @@ export function ForecastSlider({
             step={1}
             value={[hour]}
             disabled={disabled}
-            aria-valuetext={`Plus ${hour} hours, ${formatDateTime(at)}`}
+            aria-valuetext={`Plus ${hour} hours, ${formatDateTime(at, timeZone)}`}
             // The default muted track is too faint over the translucent card.
             className="**:data-[slot=slider-track]:bg-border"
             onValueChange={([next]) => next !== undefined && onHourChange(next)}

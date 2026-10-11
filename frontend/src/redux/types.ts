@@ -16,6 +16,8 @@ export type BBox = [number, number, number, number]
 export interface Place {
   label: string
   position: LngLat
+  /** IANA timezone, e.g. "America/Denver". */
+  time_zone: string
 }
 
 // --- POST /routes/analyze ---------------------------------------------------
@@ -23,7 +25,8 @@ export interface Place {
 export interface AnalyzeRequest {
   origin: string
   destination: string
-  /** ISO 8601 with timezone offset. */
+  /** Wall-clock time at the origin, ISO 8601 without offset ("2026-10-11T06:00:00").
+   *  The backend applies the origin's timezone. */
   departure_time: string
   load_lb: number
   interval_mi: CheckpointInterval

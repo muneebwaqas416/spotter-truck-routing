@@ -1,17 +1,26 @@
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-  timeZoneName: 'short',
-})
+/**
+ * Times are always shown with their zone ("19:00 MDT"). Trip times use the trip's own zones
+ * (origin for departure and checkpoints, destination for arrival), not the viewer's browser.
+ * en-US gives North American abbreviations (MDT, CST) instead of "GMT-6".
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>()
 
-const clockFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-})
+function formatter(withDate: boolean, timeZone?: string): Intl.DateTimeFormat {
+  const key = `${withDate}|${timeZone ?? ''}`
+  let cached = formatters.get(key)
+  if (!cached) {
+    cached = new Intl.DateTimeFormat('en-US', {
+      ...(withDate && { month: 'short', day: 'numeric' }),
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZoneName: 'short',
+      timeZone,
+    })
+    formatters.set(key, cached)
+  }
+  return cached
+}
 
 const integerFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
@@ -35,12 +44,14 @@ export function formatDurationDelta(seconds: number): string {
   return `${sign}${formatDuration(Math.abs(minutes) * 60).replace(/m$/, ' min')}`
 }
 
-export function formatDateTime(iso: string): string {
-  return timeFormatter.format(new Date(iso))
+/** "Oct 10, 19:00 MDT" in `timeZone` (IANA name), or the viewer's zone when omitted. */
+export function formatDateTime(iso: string, timeZone?: string): string {
+  return formatter(true, timeZone).format(new Date(iso))
 }
 
-export function formatClock(iso: string): string {
-  return clockFormatter.format(new Date(iso))
+/** "19:00 MDT" in `timeZone` (IANA name), or the viewer's zone when omitted. */
+export function formatClock(iso: string, timeZone?: string): string {
+  return formatter(false, timeZone).format(new Date(iso))
 }
 
 export function formatPounds(pounds: number): string {

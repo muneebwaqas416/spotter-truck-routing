@@ -191,6 +191,7 @@ export function MapView({ analysis, heatmap, showHeatmap, dimmed }: MapViewProps
             <CheckpointPopup
               checkpoint={popup.checkpoint}
               routeLabel={popup.route.label}
+              timeZone={analysis?.origin.time_zone ?? 'UTC'}
               onClose={() => dispatch(checkpointSelected(null))}
             />
           </Popup>

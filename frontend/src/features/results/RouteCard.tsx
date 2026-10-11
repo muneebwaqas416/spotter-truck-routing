@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 interface RouteCardProps {
   route: RouteOption
   departureTime: string
+  /** Arrival times are shown in the destination's zone. */
+  arrivalTimeZone: string
   selected: boolean
   badge?: 'recommended' | 'least-risky'
   isFastest: boolean
@@ -27,6 +29,7 @@ const BADGES = {
 export function RouteCard({
   route,
   departureTime,
+  arrivalTimeZone,
   selected,
   badge,
   isFastest,
@@ -83,7 +86,7 @@ export function RouteCard({
             {formatDuration(route.metrics.duration_s)}
           </span>
           <span className="ml-2 text-xs text-muted-foreground">
-            ETA {formatClock(addSeconds(departureTime, route.metrics.duration_s))}
+            ETA {formatClock(addSeconds(departureTime, route.metrics.duration_s), arrivalTimeZone)}
           </span>
         </span>
       </div>

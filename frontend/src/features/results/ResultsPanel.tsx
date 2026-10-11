@@ -4,6 +4,7 @@ import { StatusAlert } from '@/components/StatusAlert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { analysisSubmitted, editTrip, routeSelected } from '@/features/trip/tripSlice'
+import { addHours, toLocalInputValue } from '@/lib/datetime'
 import { formatClock, formatDurationDelta } from '@/lib/format'
 
 import { fastestRouteId, hasNoSafeRoute, recommendedRoute, resultNotices } from './derive'
@@ -25,10 +26,9 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
 
   function departLater() {
     if (!request) return
-    const later = new Date(
-      new Date(request.departure_time).getTime() + DELAY_SUGGESTION_HOURS * 3_600_000,
-    )
-    dispatch(analysisSubmitted({ ...request, departure_time: later.toISOString() }))
+    // departure_time is wall-clock time at the origin; shift it and keep it zone-less.
+    const later = addHours(new Date(request.departure_time), DELAY_SUGGESTION_HOURS)
+    dispatch(analysisSubmitted({ ...request, departure_time: `${toLocalInputValue(later)}:00` }))
   }
 
   return (
@@ -88,7 +88,8 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
 
       {analysis.forecast_fetched_at && (
         <p className="text-xs text-muted-foreground">
-          Forecast as of {formatClock(analysis.forecast_fetched_at)} · updates every 30 min
+          Forecast as of {formatClock(analysis.forecast_fetched_at, analysis.origin.time_zone)} ·
+          updates every 30 min
         </p>
       )}
 
@@ -101,6 +102,7 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
             key={route.id}
             route={route}
             departureTime={analysis.departure_time}
+            arrivalTimeZone={analysis.destination.time_zone}
             selected={route.id === activeRouteId}
             badge={
               route.id === best?.id ? (noSafeRoute ? 'least-risky' : 'recommended') : undefined

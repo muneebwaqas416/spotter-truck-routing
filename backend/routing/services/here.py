@@ -34,17 +34,18 @@ DETOUR_OFFSET_FRACTION = 0.15
 
 
 def geocode(query: str) -> Place:
-    return get_or_fetch(_text_key("geo", query), GEOCODE_TTL_S, lambda: _geocode(query))
+    # v2: Place gained `time_zone`; old v1 entries are simply never read again.
+    return get_or_fetch(_text_key("geo", query, version=2), GEOCODE_TTL_S, lambda: _geocode(query))
 
 
 def suggest(query: str) -> list[Suggestion]:
     return get_or_fetch(_text_key("suggest", query), SUGGEST_TTL_S, lambda: _suggest(query))
 
 
-def _text_key(kind: str, query: str) -> str:
+def _text_key(kind: str, query: str, version: int = 1) -> str:
     """Case- and whitespace-insensitive key; hashed so user text is never part of a cache key."""
     normalized = " ".join(query.lower().split())
-    return f"v1:{kind}:{hashlib.sha256(normalized.encode()).hexdigest()[:32]}"
+    return f"v{version}:{kind}:{hashlib.sha256(normalized.encode()).hexdigest()[:32]}"
 
 
 def routes(origin: Place, destination: Place, departure: datetime, load_lb: int) -> list[RoutePath]:
@@ -70,12 +71,17 @@ def _geocode(query: str) -> Place:
     data = get_json(
         "geocoding",
         settings.HERE_GEOCODE_URL,
-        {"q": query, "in": COUNTRIES, "limit": 1, "apiKey": _api_key()},
+        {"q": query, "in": COUNTRIES, "limit": 1, "show": "tz", "apiKey": _api_key()},
     )
     items = data.get("items") or []
     if not items:
         raise PlaceNotFound(query)
-    return Place(label=items[0]["address"]["label"], position=_lng_lat(items[0]["position"]))
+    item = items[0]
+    return Place(
+        label=item["address"]["label"],
+        position=_lng_lat(item["position"]),
+        time_zone=item.get("timeZone", {}).get("name", "UTC"),
+    )
 
 
 def _suggest(query: str) -> list[Suggestion]:

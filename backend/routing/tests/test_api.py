@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -17,11 +18,23 @@ PLACES = {
         "position": {"lat": 40.7608, "lng": -111.891},
     },
 }
+DENVER_TZ = "America/Denver"
 
 
 def geocode_response(request: httpx.Request) -> httpx.Response:
     place = PLACES.get(request.url.params["q"])
-    items = [{"address": {"label": place["label"]}, "position": place["position"]}] if place else []
+    timezone_info = {"name": DENVER_TZ, "utcOffset": "-06:00"}
+    items = (
+        [
+            {
+                "address": {"label": place["label"]},
+                "position": place["position"],
+                "timeZone": timezone_info,
+            }
+        ]
+        if place
+        else []
+    )
     return httpx.Response(200, json={"items": items})
 
 
@@ -93,8 +106,7 @@ def test_repeat_analysis_with_different_load_reuses_provider_data(providers):
         ({"interval_mi": 15}, "interval_mi"),
         ({"load_lb": 0}, "load_lb"),
         ({"load_lb": 80_001}, "load_lb"),
-        ({"departure_time": "2026-10-10T06:00:00"}, "departure_time"),  # naive
-        ({"departure_time": (timezone.now() + timedelta(days=17)).isoformat()}, "departure_time"),
+        ({"departure_time": "not-a-date"}, "departure_time"),
         ({"destination": "denver, co"}, "destination"),
         ({"origin": ""}, "origin"),
     ],
@@ -169,3 +181,27 @@ def test_geocode_suggestions(providers):
     response = APIClient().get(reverse("routing:geocode"), {"q": "Denver"})
     assert response.status_code == 200
     assert response.json() == [{"id": "1", "label": "Denver, CO, USA", "position": [-105, 39.7]}]
+
+
+def test_naive_departure_is_local_time_at_origin(providers):
+    """06:00 entered for Denver means 06:00 Mountain time, not the server's or browser's zone."""
+    local = (timezone.now() + timedelta(days=1)).astimezone(ZoneInfo(DENVER_TZ))
+    wall_clock = local.replace(hour=6, minute=0, second=0, microsecond=0, tzinfo=None)
+
+    response = analyze(payload(departure_time=wall_clock.isoformat()))
+
+    assert response.status_code == 200
+    body = response.json()
+    departure = datetime.fromisoformat(body["departure_time"])
+    assert departure.utcoffset() in (timedelta(hours=-6), timedelta(hours=-7))  # MDT / MST
+    assert departure.hour == 6
+    assert body["origin"]["time_zone"] == DENVER_TZ
+    first_eta = datetime.fromisoformat(body["routes"][0]["checkpoints"][0]["eta"])
+    assert first_eta == departure  # same instant, whatever offset it's written with
+
+
+def test_departure_outside_forecast_window_is_a_field_error(providers):
+    too_far = (timezone.now() + timedelta(days=17)).isoformat()
+    response = analyze(payload(departure_time=too_far))
+    assert response.status_code == 400
+    assert response.json() == {"departure_time": ["Forecasts cover the next 16 days."]}

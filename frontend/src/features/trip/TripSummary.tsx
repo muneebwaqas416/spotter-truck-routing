@@ -8,7 +8,14 @@ import type { AnalyzeRequest } from '@/redux/types'
 
 import { editTrip } from './tripSlice'
 
-export function TripSummary({ request }: { request: AnalyzeRequest }) {
+interface TripSummaryProps {
+  request: AnalyzeRequest
+  /** Resolved departure (with offset) and origin zone, once the analysis has returned. */
+  departure?: string
+  timeZone?: string
+}
+
+export function TripSummary({ request, departure, timeZone }: TripSummaryProps) {
   const dispatch = useAppDispatch()
   return (
     <Card size="sm">
@@ -19,8 +26,8 @@ export function TripSummary({ request }: { request: AnalyzeRequest }) {
           <span className="truncate">{request.destination}</span>
         </CardTitle>
         <CardDescription className="tabular font-mono text-xs">
-          {formatDateTime(request.departure_time)} · {formatPounds(request.load_lb)} ·{' '}
-          {request.interval_mi} mi
+          {departure ? formatDateTime(departure, timeZone) : request.departure_time.slice(0, 16)} ·{' '}
+          {formatPounds(request.load_lb)} · {request.interval_mi} mi
         </CardDescription>
         <CardAction>
           <Button variant="outline" size="sm" onClick={() => dispatch(editTrip())}>

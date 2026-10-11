@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { addHours, localInputToIso } from '@/lib/datetime'
+import { addHours } from '@/lib/datetime'
 import type { AnalyzeRequest } from '@/redux/types'
 
 export const MAX_LOAD_LB = 80_000
@@ -8,6 +8,11 @@ export const MAX_LOAD_LB = 80_000
 export const FORECAST_HORIZON_DAYS = 16
 /** Small grace period so "now" doesn't fail while the user is typing. */
 const PAST_GRACE_HOURS = 1
+/**
+ * Departure is local time at the origin, whose zone isn't known until the backend geocodes it.
+ * The browser check allows the widest real-world offset difference; the backend checks exactly.
+ */
+export const ZONE_SLACK_HOURS = 14
 
 const parseLoad = (value: string) => Number(value.replace(/,/g, ''))
 
@@ -25,11 +30,12 @@ export const tripSchema = z
         'Choose a departure date and time',
       )
       .refine(
-        (value) => new Date(value) >= addHours(new Date(), -PAST_GRACE_HOURS),
+        (value) => new Date(value) >= addHours(new Date(), -PAST_GRACE_HOURS - ZONE_SLACK_HOURS),
         'Departure is in the past',
       )
       .refine(
-        (value) => new Date(value) <= addHours(new Date(), FORECAST_HORIZON_DAYS * 24),
+        (value) =>
+          new Date(value) <= addHours(new Date(), FORECAST_HORIZON_DAYS * 24 + ZONE_SLACK_HOURS),
         `Forecasts cover the next ${FORECAST_HORIZON_DAYS} days — pick an earlier departure`,
       ),
     loadLb: z
@@ -58,7 +64,7 @@ export function toAnalyzeRequest(values: TripFormValues): AnalyzeRequest {
   return {
     origin: values.origin.trim(),
     destination: values.destination.trim(),
-    departure_time: localInputToIso(values.departure),
+    departure_time: `${values.departure}:00`,
     load_lb: parseLoad(values.loadLb),
     interval_mi: values.intervalMi,
   }

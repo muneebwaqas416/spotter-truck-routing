@@ -83,6 +83,7 @@ export default function App() {
                 <div className="pointer-events-auto flex flex-1 justify-center">
                   <ForecastSlider
                     start={heatmapStart}
+                    timeZone={results.origin.time_zone}
                     hour={forecastHour}
                     onHourChange={(hour) => dispatch(forecastHourChanged(hour))}
                     isLoading={heatmap.isLoading}

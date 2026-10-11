@@ -1,9 +1,7 @@
 """Request validation and response representation for the routing API."""
 
-import re
-from datetime import timedelta
+from datetime import datetime
 
-from django.utils import timezone
 from rest_framework import serializers
 
 from routing.services.analysis import Analysis
@@ -13,10 +11,7 @@ from routing.services.heatmap import Heatmap
 from routing.services.scoring import LEVEL_KEYS
 
 MAX_LOAD_LB = 80_000  # US federal gross weight limit
-FORECAST_HORIZON_DAYS = 16
-PAST_GRACE = timedelta(hours=1)
 MAX_BBOX_DEGREES = 20
-TZ_SUFFIX = re.compile(r"(Z|[+-]\d{2}:?\d{2})$")
 
 LEVEL_NAMES = LEVEL_KEYS[:-1]  # index → name for known levels
 
@@ -27,24 +22,19 @@ LEVEL_NAMES = LEVEL_KEYS[:-1]  # index → name for known levels
 class AnalyzeRequestSerializer(serializers.Serializer):
     origin = serializers.CharField(max_length=200, trim_whitespace=True)
     destination = serializers.CharField(max_length=200, trim_whitespace=True)
-    departure_time = serializers.DateTimeField()
+    # Local time at the origin ("2026-10-11T06:00") or an explicit offset. Parsed here;
+    # the timezone and the forecast window are applied once the origin is geocoded.
+    departure_time = serializers.CharField(max_length=40)
     load_lb = serializers.IntegerField(min_value=1, max_value=MAX_LOAD_LB)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50])
 
-    def validate_departure_time(self, value):
-        # Reject naive datetimes rather than silently assuming a timezone.
-        if not TZ_SUFFIX.search(str(self.initial_data.get("departure_time", ""))):
+    def validate_departure_time(self, value: str) -> datetime:
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError as exc:
             raise serializers.ValidationError(
-                "Include a timezone offset, e.g. 2026-10-10T06:00:00-06:00."
-            )
-        now = timezone.now()
-        if value < now - PAST_GRACE:
-            raise serializers.ValidationError("Departure is in the past.")
-        if value > now + timedelta(days=FORECAST_HORIZON_DAYS):
-            raise serializers.ValidationError(
-                f"Forecasts cover the next {FORECAST_HORIZON_DAYS} days."
-            )
-        return value
+                "Use ISO 8601, e.g. 2026-10-11T06:00 (local time at the origin)."
+            ) from exc
 
     def validate(self, attrs):
         if attrs["origin"].lower() == attrs["destination"].lower():
@@ -144,7 +134,7 @@ def _checkpoint(checkpoint: Checkpoint) -> dict:
 
 
 def _place(place) -> dict:
-    return {"label": place.label, "position": list(place.position)}
+    return {"label": place.label, "position": list(place.position), "time_zone": place.time_zone}
 
 
 def _iso(value) -> str | None:

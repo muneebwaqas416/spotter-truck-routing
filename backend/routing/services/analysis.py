@@ -6,7 +6,7 @@ from string import ascii_uppercase
 
 from routing.exceptions import PlaceNotFound
 
-from . import here, weather
+from . import here, timezones, weather
 from .checkpoints import sample_checkpoints
 from .domain import Checkpoint, Place, RoutePath
 from .risk import assess
@@ -40,6 +40,9 @@ def analyze(
 ) -> Analysis:
     origin = _geocode(origin_query, "origin")
     destination = _geocode(destination_query, "destination")
+    # Wall-clock departures are local to the origin; check the window once the zone is known.
+    departure = timezones.localize(departure, origin.time_zone)
+    timezones.check_departure_window(departure)
     paths = here.routes(origin, destination, departure, load_lb)
 
     sampled = [sample_checkpoints(path, interval_mi, departure) for path in paths]

@@ -50,7 +50,13 @@ export function SidePanel() {
             />
           </Card>
         ) : (
-          analysis.request && <TripSummary request={analysis.request} />
+          analysis.request && (
+            <TripSummary
+              request={analysis.request}
+              departure={analysis.data?.departure_time}
+              timeZone={analysis.data?.origin.time_zone}
+            />
+          )
         )}
 
         {analysis.isLoading && <AnalysisProgress />}

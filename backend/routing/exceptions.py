@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
+from routing.services.timezones import DepartureOutOfRange
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +45,8 @@ class NoRouteFound(Exception):
 
 def api_exception_handler(exc: Exception, context: dict) -> Response | None:
     """Extend DRF's handler so domain and provider failures map to clear, safe responses."""
+    if isinstance(exc, DepartureOutOfRange):
+        return Response({"departure_time": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
     if isinstance(exc, PlaceNotFound):
         message = f'Couldn\'t find "{exc.query}". Pick a place from the suggestions.'
         body = {"code": "place_not_found", "detail": message}
