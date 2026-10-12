@@ -41,13 +41,20 @@ class Analysis:
 
 
 def analyze(
-    origin_query: str, destination_query: str, departure: datetime, load_lb: int, interval_mi: int
+    origin_query: str,
+    destination_query: str,
+    departure: datetime | None,
+    load_lb: int,
+    interval_mi: int,
 ) -> Analysis:
+    """`departure` is wall-clock time at the origin, offset-aware, or None for "leave now"."""
     origin = _geocode(origin_query, "origin")
     destination = _geocode(destination_query, "destination")
     if haversine_mi(origin.position, destination.position) < SAME_PLACE_MI:
         raise SamePlace()
     # Wall-clock departures are local to the origin; check the window once the zone is known.
+    if departure is None:
+        departure = datetime.now(UTC).astimezone(timezones.zone(origin.time_zone))
     departure = timezones.localize(departure, origin.time_zone)
     timezones.check_departure_window(departure)
     # Compute in UTC: adding a duration to a zoned datetime follows the local wall clock, which

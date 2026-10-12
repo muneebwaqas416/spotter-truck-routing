@@ -348,3 +348,13 @@ def test_provider_error_bodies_are_not_logged(providers, caplog):
     analyze(payload())
     assert "HTTP 500" in caplog.text
     assert "secret-value" not in caplog.text
+
+
+def test_departure_now_uses_the_current_time_at_the_origin(providers):
+    """The browser doesn't know the origin's zone, so "now" is resolved on the server."""
+    before = timezone.now()
+    response = analyze(payload(departure_time="now"))
+    assert response.status_code == 200
+    departure = datetime.fromisoformat(response.json()["departure_time"])
+    assert before - timedelta(seconds=1) <= departure <= timezone.now()
+    assert departure.utcoffset() in (timedelta(hours=-6), timedelta(hours=-7))  # Denver

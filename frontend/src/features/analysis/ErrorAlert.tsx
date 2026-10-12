@@ -38,7 +38,7 @@ export function ErrorAlert({ error, onRetry }: ErrorAlertProps) {
             >
               <RotateCw aria-hidden className="size-3.5" />
               {waitSeconds > 0
-                ? `Try again in 0:${String(waitSeconds).padStart(2, '0')}`
+                ? `Try again in ${Math.floor(waitSeconds / 60)}:${String(waitSeconds % 60).padStart(2, '0')}`
                 : 'Try again'}
             </Button>
             <Button

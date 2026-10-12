@@ -4,7 +4,6 @@ import { StatusAlert } from '@/components/StatusAlert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { analysisSubmitted, editTrip, routeSelected } from '@/features/trip/tripSlice'
-import { addHours, toLocalInputValue } from '@/lib/datetime'
 import { formatClock, formatDurationDelta } from '@/lib/format'
 
 import {
@@ -32,9 +31,13 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
 
   function departLater() {
     if (!request) return
-    // departure_time is wall-clock time at the origin; shift it and keep it zone-less.
-    const later = addHours(new Date(request.departure_time), DELAY_SUGGESTION_HOURS)
-    dispatch(analysisSubmitted({ ...request, departure_time: `${toLocalInputValue(later)}:00` }))
+    // The response's departure is the origin's wall clock (its offset aside). Shift that wall
+    // time in UTC arithmetic so neither the browser's zone nor DST changes the 6 hours.
+    const wallClock = new Date(`${analysis.departure_time.slice(0, 16)}:00Z`)
+    wallClock.setUTCHours(wallClock.getUTCHours() + DELAY_SUGGESTION_HOURS)
+    dispatch(
+      analysisSubmitted({ ...request, departure_time: wallClock.toISOString().slice(0, 19) }),
+    )
   }
 
   return (
@@ -92,7 +95,8 @@ export function ResultsPanel({ analysis }: { analysis: AnalyzeResponse }) {
               .map((detour) => `${detour.label.replace(' (detour)', '')} (+${detour.extraPct}%)`)
               .join(' and ')}{' '}
             {notice.detours.length === 1 ? 'is' : 'are'} forced through a waypoint to show an
-            alternative, so treat {notice.detours.length === 1 ? 'it' : 'them'} as what-if options.
+            alternative, so treat{' '}
+            {notice.detours.length === 1 ? 'it as a what-if option' : 'them as what-if options'}.
           </StatusAlert>
         ),
       )}

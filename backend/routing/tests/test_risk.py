@@ -82,7 +82,7 @@ def test_load_rules_never_downgrade():
 def test_worst_condition_wins_with_reasons():
     level, reasons = assess(WeatherSample(None, 38, 48, 0.3, 0.0), 42_000)
     assert level == S
-    assert reasons == ["Wind 38 mph with load > 40,000 lb", "Rain 0.30 in/hr"]
+    assert reasons == ["Wind 38 mph with load > 40,000 lb", "Rain 0.3 in/hr"]
 
 
 @pytest.mark.parametrize("field", ["wind_mph", "rain_in_hr", "snow_in_hr"])

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { addHours, nextFullHour, toLocalInputValue } from '@/lib/datetime'
+import { addHours, toLocalInputValue } from '@/lib/datetime'
 import { useAppDispatch } from '@/redux/hooks'
 import type { AnalyzeRequest } from '@/redux/types'
 
@@ -17,7 +17,9 @@ import { FieldError } from './FieldError'
 import { IntervalControl } from './IntervalControl'
 import { PlaceAutocomplete } from './PlaceAutocomplete'
 import { analysisCancelled, analysisSubmitted, closeEditor } from './tripSlice'
+import { useAnalysis } from './useAnalysis'
 import {
+  DEPART_NOW,
   FORECAST_HORIZON_DAYS,
   MAX_LOAD_LB,
   toAnalyzeRequest,
@@ -39,7 +41,7 @@ function defaultValues(request: AnalyzeRequest | null): TripFormValues {
     return {
       origin: '',
       destination: '',
-      departure: toLocalInputValue(nextFullHour()),
+      departure: '',
       loadLb: '',
       intervalMi: 25,
     }
@@ -47,8 +49,8 @@ function defaultValues(request: AnalyzeRequest | null): TripFormValues {
   return {
     origin: request.origin,
     destination: request.destination,
-    // Already wall-clock time at the origin: show it as entered.
-    departure: request.departure_time.slice(0, 16),
+    // Already wall-clock time at the origin: show it as entered ("now" stays empty).
+    departure: request.departure_time === DEPART_NOW ? '' : request.departure_time.slice(0, 16),
     loadLb: request.load_lb.toLocaleString('en-US'),
     intervalMi: request.interval_mi,
   }
@@ -88,8 +90,14 @@ export function TripForm({ initialRequest, isLoading, serverErrors, canClose }: 
     }
   })
 
+  const analysis = useAnalysis()
   const onSubmit = handleSubmit((values) => {
-    dispatch(analysisSubmitted(toAnalyzeRequest(values)))
+    const request = toAnalyzeRequest(values)
+    // RTK Query sends nothing for an unchanged query, so retrying a failed trip needs a refetch.
+    if (analysis.isError && analysis.request && sameRequest(request, analysis.request)) {
+      void analysis.refetch()
+    }
+    dispatch(analysisSubmitted(request))
   })
 
   const load = parseLoad(useWatch({ control, name: 'loadLb' }))
@@ -148,7 +156,11 @@ export function TripForm({ initialRequest, isLoading, serverErrors, canClose }: 
             {...register('departure')}
           />
         </div>
-        <FieldError id={`${ids.departure}-error`} message={errors.departure?.message} />
+        {errors.departure ? (
+          <FieldError id={`${ids.departure}-error`} message={errors.departure.message} />
+        ) : (
+          <p className="text-xs text-muted-foreground">Leave empty to depart now.</p>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -239,4 +251,8 @@ export function TripForm({ initialRequest, isLoading, serverErrors, canClose }: 
       </div>
     </form>
   )
+}
+
+function sameRequest(a: AnalyzeRequest, b: AnalyzeRequest): boolean {
+  return (Object.keys(a) as (keyof AnalyzeRequest)[]).every((key) => a[key] === b[key])
 }

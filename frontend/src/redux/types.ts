@@ -25,7 +25,7 @@ export interface Place {
 export interface AnalyzeRequest {
   origin: string
   destination: string
-  /** Wall-clock time at the origin, ISO 8601 without offset ("2026-10-11T06:00:00").
+  /** Wall-clock time at the origin, ISO 8601 without offset ("2026-10-11T06:00:00"), or "now".
    *  The backend applies the origin's timezone. */
   departure_time: string
   load_lb: number

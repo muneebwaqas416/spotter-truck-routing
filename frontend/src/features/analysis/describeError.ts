@@ -38,7 +38,7 @@ export function describeError(error: ApiError): ErrorDescription {
   }
   if (error.status === 503) {
     return {
-      title: 'Weather service is busy',
+      title: 'Service is busy',
       body: `${error.message} Routes were not scored, and nothing is assumed safe.`,
       tone: 'warning',
       retryable: true,

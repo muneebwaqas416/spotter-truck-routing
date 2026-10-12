@@ -25,13 +25,16 @@ LEVEL_NAMES = LEVEL_KEYS[:-1]  # index → name for known levels
 class AnalyzeRequestSerializer(serializers.Serializer):
     origin = serializers.CharField(max_length=200, trim_whitespace=True)
     destination = serializers.CharField(max_length=200, trim_whitespace=True)
-    # Local time at the origin ("2026-10-11T06:00") or an explicit offset. Parsed here;
+    # Local time at the origin ("2026-10-11T06:00"), an explicit offset, or "now". Parsed here;
     # the timezone and the forecast window are applied once the origin is geocoded.
     departure_time = serializers.CharField(max_length=40)
     load_lb = serializers.IntegerField(min_value=1, max_value=MAX_LOAD_LB)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50])
 
-    def validate_departure_time(self, value: str) -> datetime:
+    def validate_departure_time(self, value: str) -> datetime | None:
+        # "now" avoids guessing the origin's clock in the browser, which doesn't know its zone.
+        if value.strip().lower() == "now":
+            return None
         try:
             return datetime.fromisoformat(value)
         except ValueError as exc:
@@ -136,8 +139,9 @@ def _checkpoint(checkpoint: Checkpoint) -> dict:
             "forecast_time": _iso(w.forecast_time),
             "wind_mph": w.wind_mph,
             "gust_mph": w.gust_mph,
-            "rain_in_hr": None if w.rain_in_hr is None else round(w.rain_in_hr, 3),
-            "snow_in_hr": None if w.snow_in_hr is None else round(w.snow_in_hr, 2),
+            # Already 4 decimals; rounding further could cross a threshold (0.4999 → 0.5).
+            "rain_in_hr": w.rain_in_hr,
+            "snow_in_hr": w.snow_in_hr,
         },
         "risk": "UNKNOWN" if checkpoint.level is None else LEVEL_NAMES[checkpoint.level],
         "reasons": checkpoint.reasons,

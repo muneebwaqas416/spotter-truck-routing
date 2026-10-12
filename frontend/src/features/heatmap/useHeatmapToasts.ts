@@ -18,12 +18,21 @@ export function useHeatmapToasts(heatmap: ReturnType<typeof useHeatmap>) {
     if (error) {
       announcedFor.current = startedAt
       const { title, retryable } = describeError(error)
-      toast.error(`Heatmap unavailable — ${title.toLowerCase()}`, {
-        id: HEATMAP_TOAST_ID,
-        description: `${error.message} Routes and checkpoint risk are not affected.`,
-        duration: 10_000,
-        action: retryable ? { label: 'Retry', onClick: () => void heatmap.refetch() } : undefined,
-      })
+      const fieldReason = error.fieldErrors && Object.values(error.fieldErrors)[0]?.[0]
+      toast.error(
+        fieldReason
+          ? 'Heatmap unavailable for this trip'
+          : `Heatmap unavailable — ${title.toLowerCase()}`,
+        {
+          id: HEATMAP_TOAST_ID,
+          description: `${fieldReason ?? error.message} Routes and checkpoint risk are not affected.`,
+          duration: 10_000,
+          action:
+            retryable && !fieldReason
+              ? { label: 'Retry', onClick: () => void heatmap.refetch() }
+              : undefined,
+        },
+      )
       return
     }
 

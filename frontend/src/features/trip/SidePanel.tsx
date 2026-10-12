@@ -78,7 +78,7 @@ function GettingStarted() {
   const steps = [
     'We get 3 truck routes between your stops.',
     'Weather is sampled at your ETA every 10, 25 or 50 miles.',
-    'Routes are ranked by Severe miles, High miles, average risk, then time.',
+    'Routes are ranked by No Travel miles, Severe, High, then Unknown miles, average risk, then time.',
   ]
   return (
     <div className="rounded-xl border border-dashed border-input p-4">

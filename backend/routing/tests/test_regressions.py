@@ -32,7 +32,7 @@ def test_sustained_29_5_mph_with_45_6_gusts_is_moderate():
     # Route A checkpoint 25 near Rock Springs: sustained 29.5 mph, gusts 45.6 mph.
     level, reasons = assess(WeatherSample(None, 29.5, 45.6, 0.0, 0.0), LOAD)
     assert level == RiskLevel.MODERATE
-    assert reasons == ["Wind 30 mph"]
+    assert reasons == ["Wind 29.5 mph"]
 
 
 @pytest.mark.parametrize(
@@ -204,3 +204,20 @@ def test_heatmap_grid_reaches_every_edge_on_a_regular_spacing(bbox):
     half = step / 2 + 1e-9
     assert lons[0] - half <= bbox[0] and lons[-1] + half >= bbox[2]
     assert lats[0] - half <= bbox[1] and lats[-1] + half >= bbox[3]
+
+
+# --- QA review: displayed values never cross a threshold -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sample", "load", "reason"),
+    [
+        (WeatherSample(None, 44.6, 50, 0.0, 0.0), 40_001, "Wind 44.6 mph with load > 40,000 lb"),
+        (WeatherSample(None, 54.96, 60, 0.0, 0.0), 0, "Wind 54.9 mph"),  # Severe, not "55"
+        (WeatherSample(None, 0, 0, 0.0, 1.96), 0, "Snow 1.9 in/hr"),  # High, not "2.0"
+        (WeatherSample(None, 0, 0, 0.249, 0.0), 0, "Rain 0.24 in/hr"),  # Moderate, not "0.25"
+        (WeatherSample(None, 0, 0, 0.29, 0.0), 0, "Rain 0.29 in/hr"),  # no float drift down
+    ],
+)
+def test_reason_values_are_truncated_not_rounded(sample, load, reason):
+    assert reason in assess(sample, load)[1]

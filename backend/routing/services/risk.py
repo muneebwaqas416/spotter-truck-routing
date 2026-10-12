@@ -4,6 +4,7 @@ Boundary convention (CLAUDE.md §3): a threshold value belongs to the higher lev
 an explicit ">" in the spec (rain > 1.00, snow > 3.0), where the value stays in the lower level.
 """
 
+import math
 from enum import IntEnum
 
 from .domain import WeatherSample
@@ -79,12 +80,18 @@ def assess(sample: WeatherSample, load_lb: int) -> tuple[RiskLevel | None, list[
     reasons = []
     if wind > base_wind:
         limit = LOAD_NO_TRAVEL_LB if wind == RiskLevel.NO_TRAVEL else LOAD_SEVERE_LB
-        reasons.append(f"Wind {sample.wind_mph:.0f} mph with load > {limit:,} lb")
+        reasons.append(f"Wind {_shown(sample.wind_mph, 1)} mph with load > {limit:,} lb")
     elif wind > RiskLevel.LOW:
-        reasons.append(f"Wind {sample.wind_mph:.0f} mph")
+        reasons.append(f"Wind {_shown(sample.wind_mph, 1)} mph")
     if rain > RiskLevel.LOW:
-        reasons.append(f"Rain {sample.rain_in_hr:.2f} in/hr")
+        reasons.append(f"Rain {_shown(sample.rain_in_hr, 2)} in/hr")
     if snow > RiskLevel.LOW:
-        reasons.append(f"Snow {sample.snow_in_hr:.1f} in/hr")
+        reasons.append(f"Snow {_shown(sample.snow_in_hr, 1)} in/hr")
 
     return max(wind, rain, snow), reasons
+
+
+def _shown(value: float, decimals: int) -> str:
+    """Truncate for display. Rounding would print 44.6 mph as "45", next to a level for < 45."""
+    scale = 10**decimals
+    return f"{math.floor(value * scale + 1e-9) / scale:g}"

@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { RiskChip } from '@/components/ui/RiskChip'
-import { formatClock, formatDateTime, formatRate } from '@/lib/format'
+import { formatClock, formatDateTime, formatRate, truncate } from '@/lib/format'
 import type { Checkpoint } from '@/redux/types'
 
 interface CheckpointPopupProps {
@@ -67,8 +67,8 @@ export function CheckpointPopup({
         <dl className="tabular grid grid-cols-3 gap-2 font-mono text-xs">
           <Cell
             label="Wind"
-            value={weather.wind_mph === null ? '—' : `${Math.round(weather.wind_mph)} mph`}
-            sub={weather.gust_mph === null ? undefined : `gusts ${Math.round(weather.gust_mph)}`}
+            value={weather.wind_mph === null ? '—' : `${truncate(weather.wind_mph, 1)} mph`}
+            sub={weather.gust_mph === null ? undefined : `gusts ${truncate(weather.gust_mph, 1)}`}
           />
           <Cell label="Rain" value={formatRate(weather.rain_in_hr, 'in/h')} />
           <Cell label="Snow" value={formatRate(weather.snow_in_hr, 'in/h', 1)} />

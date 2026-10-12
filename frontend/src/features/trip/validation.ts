@@ -4,6 +4,8 @@ import { addHours } from '@/lib/datetime'
 import type { AnalyzeRequest } from '@/redux/types'
 
 export const MAX_LOAD_LB = 80_000
+/** Sent instead of a time when the departure field is left empty. */
+export const DEPART_NOW = 'now'
 /** Matches the backend's forecast window (14 days keeps Open-Meteo at one call per location). */
 export const FORECAST_HORIZON_DAYS = 14
 /** Small grace period so "now" doesn't fail while the user is typing. */
@@ -21,20 +23,25 @@ export const tripSchema = z
   .object({
     origin: z.string().trim().min(1, 'Enter an origin'),
     destination: z.string().trim().min(1, 'Enter a destination'),
-    /** <input type="datetime-local"> value, in the browser's time zone. */
+    /**
+     * <input type="datetime-local"> value: wall-clock time at the origin. Empty means "leave now",
+     * which the backend resolves in the origin's zone (the browser's clock may be elsewhere).
+     */
     departure: z
       .string()
-      .min(1, 'Choose a departure date and time')
       .refine(
-        (value) => !Number.isNaN(new Date(value).getTime()),
+        (value) => value === '' || !Number.isNaN(new Date(value).getTime()),
         'Choose a departure date and time',
       )
       .refine(
-        (value) => new Date(value) >= addHours(new Date(), -PAST_GRACE_HOURS - ZONE_SLACK_HOURS),
+        (value) =>
+          value === '' ||
+          new Date(value) >= addHours(new Date(), -PAST_GRACE_HOURS - ZONE_SLACK_HOURS),
         'Departure is in the past',
       )
       .refine(
         (value) =>
+          value === '' ||
           new Date(value) <= addHours(new Date(), FORECAST_HORIZON_DAYS * 24 + ZONE_SLACK_HOURS),
         `Forecasts cover the next ${FORECAST_HORIZON_DAYS} days — pick an earlier departure`,
       ),
@@ -64,7 +71,7 @@ export function toAnalyzeRequest(values: TripFormValues): AnalyzeRequest {
   return {
     origin: values.origin.trim(),
     destination: values.destination.trim(),
-    departure_time: `${values.departure}:00`,
+    departure_time: values.departure ? `${values.departure}:00` : DEPART_NOW,
     load_lb: parseLoad(values.loadLb),
     interval_mi: values.intervalMi,
   }

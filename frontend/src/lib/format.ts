@@ -59,7 +59,16 @@ export function formatPounds(pounds: number): string {
 }
 
 export function formatRate(value: number | null, unit: string, digits = 2): string {
-  return value === null ? '—' : `${value.toFixed(digits)} ${unit}`
+  return value === null ? '—' : `${truncate(value, digits)} ${unit}`
+}
+
+/**
+ * Cuts to `digits` decimals instead of rounding: 34.6 mph shown as "35" would sit next to a
+ * Moderate level whose legend says High starts at 35. Trailing zeros are dropped.
+ */
+export function truncate(value: number, digits: number): string {
+  const scale = 10 ** digits
+  return String(Math.floor(value * scale + 1e-9) / scale)
 }
 
 export function addSeconds(iso: string, seconds: number): string {

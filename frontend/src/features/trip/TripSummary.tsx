@@ -7,6 +7,7 @@ import { useAppDispatch } from '@/redux/hooks'
 import type { AnalyzeRequest } from '@/redux/types'
 
 import { editTrip } from './tripSlice'
+import { DEPART_NOW } from './validation'
 
 interface TripSummaryProps {
   request: AnalyzeRequest
@@ -26,8 +27,12 @@ export function TripSummary({ request, departure, timeZone }: TripSummaryProps) 
           <span className="truncate">{request.destination}</span>
         </CardTitle>
         <CardDescription className="tabular font-mono text-xs">
-          {departure ? formatDateTime(departure, timeZone) : request.departure_time.slice(0, 16)} ·{' '}
-          {formatPounds(request.load_lb)} · {request.interval_mi} mi
+          {departure
+            ? formatDateTime(departure, timeZone)
+            : request.departure_time === DEPART_NOW
+              ? 'Now'
+              : request.departure_time.slice(0, 16)}{' '}
+          · {formatPounds(request.load_lb)} · {request.interval_mi} mi
         </CardDescription>
         <CardAction>
           <Button variant="outline" size="sm" onClick={() => dispatch(editTrip())}>

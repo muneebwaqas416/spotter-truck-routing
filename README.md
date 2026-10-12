@@ -27,7 +27,8 @@ origin, destination, departure, load, interval
 
 The logic lives in `backend/routing/services/`. `risk.py`, `checkpoints.py` and `scoring.py` are pure
 functions with no Django or HTTP, and `analysis.py` runs the steps in order. The frontend only
-displays what the API returns and has no copy of the rules.
+displays what the API returns and makes no risk decisions; the legend and the heavy-load hint only
+describe the rules in text.
 
 ### APIs and why
 
@@ -178,8 +179,9 @@ Errors never include tracebacks or provider details.
 - **Truck weight for routing:** HERE needs the **gross** weight, so we send load + 30,000 lb (empty
   tractor and trailer), rounded up to the next 5,000 lb. Rounding lets nearby loads share cached routes
   and errs heavier, never lighter. The load rules use the exact load entered.
-- **Departure:** wall-clock time at the origin. Up to 1 hour in the past is accepted, for "leaving
-  now".
+- **Departure:** wall-clock time at the origin. Leaving the field empty sends `"now"`, which the
+  backend resolves in the origin's zone (the browser's clock may be in another zone). Up to 1 hour in
+  the past is accepted.
 - **Countries:** geocoding is limited to the USA, Canada and Mexico.
 
 ## Known limitations
@@ -202,7 +204,7 @@ Errors never include tracebacks or provider details.
   day, where each location in a request counts as one call. A new trip costs one call per 0.1° cell
   along its routes, and a new heatmap up to 120. Repeated trips, load changes and slider moves come
   from the cache and cost nothing. When the limit is hit, the API returns 503 with `Retry-After`, and
-  the UI counts down before retrying. The free tier is for non-commercial use; production use would
+  the side panel's retry button counts down before it can be used. The free tier is for non-commercial use; production use would
   need Open-Meteo's paid plan, which only adds an API key.
 - **Weather precision:** forecasts are hourly and per 0.1° cell.
 - **Truck details:** only weight is sent to HERE. Height, axle count and hazmat restrictions are not
