@@ -50,6 +50,10 @@ class PlaceNotFound(Exception):
         self.field = field
 
 
+class SamePlace(Exception):
+    """Origin and destination geocode to (practically) the same point."""
+
+
 class NoRouteFound(Exception):
     """The routing provider found no truck route between the two places."""
 
@@ -64,6 +68,11 @@ def api_exception_handler(exc: Exception, context: dict) -> Response | None:
         if exc.field:
             body[exc.field] = [message]
         return Response(body, status=status.HTTP_400_BAD_REQUEST)
+    if isinstance(exc, SamePlace):
+        return Response(
+            {"destination": ["Origin and destination are the same place."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     if isinstance(exc, NoRouteFound):
         return Response(
             {"code": "no_route", "detail": "No truck route was found between these places."},

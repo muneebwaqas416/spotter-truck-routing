@@ -110,7 +110,8 @@ def test_eta_adds_real_elapsed_time_across_dst(monkeypatch):
         captured["start"] = start
         return [_straight_route(hours=4)]
 
-    monkeypatch.setattr(analysis.here, "geocode", lambda q: Place(q, (-105.0, 39.7), DENVER_TZ))
+    positions = {"A": (-105.0, 39.7), "B": (-104.0, 39.7)}
+    monkeypatch.setattr(analysis.here, "geocode", lambda q: Place(q, positions[q], DENVER_TZ))
     monkeypatch.setattr(analysis.here, "routes", fake_routes)
     monkeypatch.setattr(analysis.weather, "forecasts", lambda positions: {})
 

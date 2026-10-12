@@ -155,7 +155,7 @@ Input is validated with DRF serializers:
 - `load_lb` must be 1–80,000.
 - The departure must fall inside the forecast: from today 00:00 UTC (or 1 hour ago, whichever is
   later) to 23:00 UTC on the 14th day.
-- Origin and destination must differ.
+- Origin and destination must differ, both as text and as geocoded places (at least 0.5 mi apart).
 
 Status codes:
 

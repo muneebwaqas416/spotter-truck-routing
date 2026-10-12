@@ -4,13 +4,16 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from string import ascii_uppercase
 
-from routing.exceptions import PlaceNotFound
+from routing.exceptions import PlaceNotFound, SamePlace
 
 from . import here, timezones, weather
-from .checkpoints import sample_checkpoints
+from .checkpoints import haversine_mi, sample_checkpoints
 from .domain import Checkpoint, Place, RoutePath
 from .risk import assess
 from .scoring import RouteMetrics, explain, rank, route_metrics, why_not
+
+# Closer than this, two inputs are the same place spelled differently ("Denver" / "Denver, CO").
+SAME_PLACE_MI = 0.5
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,8 @@ def analyze(
 ) -> Analysis:
     origin = _geocode(origin_query, "origin")
     destination = _geocode(destination_query, "destination")
+    if haversine_mi(origin.position, destination.position) < SAME_PLACE_MI:
+        raise SamePlace()
     # Wall-clock departures are local to the origin; check the window once the zone is known.
     departure = timezones.localize(departure, origin.time_zone)
     timezones.check_departure_window(departure)

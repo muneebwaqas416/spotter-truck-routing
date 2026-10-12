@@ -1,6 +1,7 @@
 """HERE geocoding, autosuggest and truck routing. HERE's JSON never leaves this module."""
 
 import hashlib
+import logging
 import math
 from dataclasses import replace
 from datetime import datetime
@@ -29,11 +30,16 @@ TRUCK_TARE_LB = 30_000
 WEIGHT_BUCKET_LB = 5_000
 KG_PER_LB = 0.45359237
 METERS_PER_MILE = 1609.344
+# Anything that can go wrong reading an unexpected JSON shape.
+MALFORMED = (KeyError, IndexError, TypeError, ValueError, AttributeError)
 # When the provider returns fewer than 3 routes, alternatives are forced through a waypoint off
 # the midpoint. Closer offsets are tried first so a generated detour stays as realistic as possible.
 DETOUR_OFFSET_FRACTIONS = (0.08, 0.15)
 # A generated detour more than this much longer than the provider's route isn't a real option.
 MAX_DETOUR_RATIO = 1.5
+
+
+logger = logging.getLogger(__name__)
 
 
 def geocode(query: str) -> Place:
@@ -76,15 +82,18 @@ def _geocode(query: str) -> Place:
         settings.HERE_GEOCODE_URL,
         {"q": query, "in": COUNTRIES, "limit": 1, "show": "tz", "apiKey": _api_key()},
     )
-    items = data.get("items") or []
-    if not items:
-        raise PlaceNotFound(query)
-    item = items[0]
-    return Place(
-        label=item["address"]["label"],
-        position=_lng_lat(item["position"]),
-        time_zone=item.get("timeZone", {}).get("name", "UTC"),
-    )
+    try:
+        items = data.get("items") or []
+        if not items:
+            raise PlaceNotFound(query)
+        item = items[0]
+        return Place(
+            label=item["address"]["label"],
+            position=_lng_lat(item["position"]),
+            time_zone=item.get("timeZone", {}).get("name", "UTC"),
+        )
+    except MALFORMED as exc:
+        raise ProviderError("geocoding", "malformed place") from exc
 
 
 def _suggest(query: str) -> list[Suggestion]:
@@ -93,15 +102,18 @@ def _suggest(query: str) -> list[Suggestion]:
         settings.HERE_AUTOSUGGEST_URL,
         {"q": query, "at": SUGGEST_CENTRE, "in": COUNTRIES, "limit": 5, "apiKey": _api_key()},
     )
-    return [
-        Suggestion(
-            id=item["id"],
-            label=item.get("address", {}).get("label", item["title"]),
-            position=_lng_lat(item["position"]),
-        )
-        for item in data.get("items", [])
-        if "position" in item  # category/chain results have no single position
-    ]
+    try:
+        return [
+            Suggestion(
+                id=item["id"],
+                label=item.get("address", {}).get("label") or item["title"],
+                position=_lng_lat(item["position"]),
+            )
+            for item in data.get("items", [])
+            if "position" in item  # category/chain results have no single position
+        ]
+    except MALFORMED as exc:
+        raise ProviderError("geocoding", "malformed suggestion") from exc
 
 
 def _routes_with_fallbacks(
@@ -117,7 +129,13 @@ def _routes_with_fallbacks(
         for via in _detour_waypoints(primary, fraction):
             if len(found) >= ROUTES_WANTED:
                 return found
-            for path in _request_routes(origin, destination, departure, gross_lb, via=via):
+            try:
+                detours = _request_routes(origin, destination, departure, gross_lb, via=via)
+            except ProviderError as exc:
+                # Keep what we have: further detour calls would likely fail the same way.
+                logger.warning("Detour request failed (%s); returning %d routes", exc, len(found))
+                return found
+            for path in detours:
                 too_long = path.distance_mi > MAX_DETOUR_RATIO * primary.distance_mi
                 if not too_long and not any(_same_route(path, other) for other in found):
                     found.append(replace(path, is_fallback_alternative=True))
@@ -148,7 +166,7 @@ def _request_routes(
     data = get_json("routing", settings.HERE_ROUTING_URL, params)
     try:
         return [_parse_route(route) for route in data.get("routes", [])]
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
+    except MALFORMED as exc:
         raise ProviderError("routing", "malformed route") from exc
 
 

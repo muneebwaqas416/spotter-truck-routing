@@ -266,3 +266,85 @@ def test_heatmap_start_outside_forecast_is_a_field_error(start):
     )
     assert response.status_code == 400
     assert "start" in response.json()
+
+
+# --- QA review: provider failures stay clean JSON errors -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"items": [{"position": {"lat": 39.7, "lng": -105.0}}]},  # no address
+        [{"unexpected": "list"}],
+        {"items": [{"address": {"label": "Denver"}, "position": "39.7,-105"}]},
+    ],
+)
+def test_malformed_geocode_returns_502(providers, body):
+    respx.get(settings.HERE_GEOCODE_URL).mock(return_value=httpx.Response(200, json=body))
+    response = analyze(payload())
+    assert response.status_code == 502
+    assert response.json()["code"] == "provider_error"
+
+
+def test_malformed_suggestion_returns_502(providers):
+    respx.get(settings.HERE_AUTOSUGGEST_URL).mock(
+        return_value=httpx.Response(
+            200, json={"items": [{"id": "1", "position": {"lat": 1, "lng": 2}}]}
+        )
+    )
+    response = APIClient().get(reverse("routing:geocode"), {"q": "Denver"})
+    assert response.status_code == 502
+
+
+def test_route_body_that_is_a_list_returns_502(providers):
+    providers["routing"].mock(return_value=httpx.Response(200, json=[{"routes": []}]))
+    assert analyze(payload()).status_code == 502
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        lambda hourly: hourly.update(wind_gusts_10m=hourly["wind_gusts_10m"][:-5]),
+        lambda hourly: hourly.update(wind_speed_10m=None),
+        lambda hourly: hourly.update(wind_speed_10m=["fast"] * len(hourly["time"])),
+    ],
+)
+def test_malformed_weather_series_returns_502(providers, corrupt):
+    def response(request):
+        body = open_meteo_response(request).json()
+        for location in body if isinstance(body, list) else [body]:
+            corrupt(location["hourly"])
+        return httpx.Response(200, json=body)
+
+    providers["weather"].mock(side_effect=response)
+    assert analyze(payload()).status_code == 502
+
+
+def test_failed_detour_request_keeps_the_provider_route(providers):
+    """Regression: a timeout while generating detours turned a good route into a 504."""
+    providers["routing"].mock(
+        side_effect=[
+            httpx.Response(200, json={"routes": three_routes()["routes"][:1]}),
+            httpx.ReadTimeout("slow"),
+        ]
+    )
+    response = analyze(payload())
+    assert response.status_code == 200
+    assert [route["label"] for route in response.json()["routes"]] == ["Route A"]
+
+
+def test_same_place_under_two_spellings_is_a_field_error(providers):
+    PLACES["Denver"] = PLACES["Denver, CO"]
+    try:
+        response = analyze(payload(destination="Denver"))
+    finally:
+        del PLACES["Denver"]
+    assert response.status_code == 400
+    assert response.json() == {"destination": ["Origin and destination are the same place."]}
+
+
+def test_provider_error_bodies_are_not_logged(providers, caplog):
+    providers["routing"].mock(return_value=httpx.Response(500, text="echo apiKey=secret-value"))
+    analyze(payload())
+    assert "HTTP 500" in caplog.text
+    assert "secret-value" not in caplog.text

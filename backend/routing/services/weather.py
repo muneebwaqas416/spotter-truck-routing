@@ -108,6 +108,7 @@ def _parse(location: dict) -> HourlyForecast:
         units = location["hourly_units"]
         if units["wind_speed_10m"] not in ("mp/h", "mph"):
             raise ProviderError(PROVIDER, f"unexpected wind unit {units['wind_speed_10m']}")
+        _check_series(hourly)
         rain = _to_inches(hourly["rain"], units["rain"])
         showers = _to_inches(hourly["showers"], units["showers"])
         return HourlyForecast(
@@ -131,3 +132,21 @@ def _to_inches(values: list[float | None], unit: str) -> list[float | None]:
     if factor is None:
         raise ProviderError(PROVIDER, f"unexpected precipitation unit {unit}")
     return [None if v is None else round(v * factor, PRECISION) for v in values]
+
+
+SERIES = ("wind_speed_10m", "wind_gusts_10m", "rain", "showers", "snowfall")
+
+
+def _check_series(hourly: dict) -> None:
+    """Every series must align with `time` and hold numbers or nulls; lookups index them blindly."""
+    hours = len(hourly["time"])
+    for name in SERIES:
+        values = hourly[name]
+        if not isinstance(values, list) or len(values) != hours:
+            raise ProviderError(PROVIDER, f"{name} does not match the time series")
+        if not all(_is_number_or_null(v) for v in values):
+            raise ProviderError(PROVIDER, f"{name} has non-numeric values")
+
+
+def _is_number_or_null(value: object) -> bool:
+    return value is None or (isinstance(value, int | float) and not isinstance(value, bool))

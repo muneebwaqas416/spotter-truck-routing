@@ -28,9 +28,8 @@ def get_json(provider: str, url: str, params: dict[str, Any]) -> Any:
         raise ProviderError(provider, f"request failed ({type(exc).__name__})") from exc
 
     if response.status_code >= 400:
-        logger.warning(
-            "%s returned HTTP %s: %s", provider, response.status_code, response.text[:300]
-        )
+        # Status only: provider bodies can echo request details.
+        logger.warning("%s returned HTTP %s", provider, response.status_code)
         if response.status_code == 429:
             raise ProviderBusy(provider, _retry_after(response))
         raise ProviderError(provider, f"HTTP {response.status_code}")
