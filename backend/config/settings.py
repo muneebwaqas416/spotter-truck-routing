@@ -113,6 +113,9 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_METHODS = ["GET", "POST", "OPTIONS"]
+# The frontend reads Retry-After on 429/503 to count down before retrying; cross-origin
+# responses hide it from JavaScript unless it is exposed.
+CORS_EXPOSE_HEADERS = ["Retry-After"]
 
 # --- Security (production) ----------------------------------------------------
 

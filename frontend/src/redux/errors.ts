@@ -8,7 +8,7 @@ export interface ApiError {
   message: string
   /** DRF field validation errors, keyed by request field. */
   fieldErrors?: Record<string, string[]>
-  /** From the Retry-After header on 429 responses. */
+  /** From the Retry-After header on 429/503 responses. */
   retryAfterSeconds?: number
 }
 
@@ -16,6 +16,7 @@ const STATUS_MESSAGES: Record<number, string> = {
   400: 'Some inputs are invalid.',
   429: 'Too many requests. Please wait a moment and try again.',
   502: 'An upstream service is unavailable. Please try again.',
+  503: 'An upstream service is busy. Please try again in a minute.',
   504: 'An upstream service timed out. Please try again.',
 }
 

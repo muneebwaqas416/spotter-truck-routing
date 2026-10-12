@@ -36,6 +36,14 @@ export function describeError(error: ApiError): ErrorDescription {
       retryable: true,
     }
   }
+  if (error.status === 503) {
+    return {
+      title: 'Weather service is busy',
+      body: `${error.message} Routes were not scored, and nothing is assumed safe.`,
+      tone: 'warning',
+      retryable: true,
+    }
+  }
   if (error.code === 'no_route') {
     return {
       title: 'No truck route found',

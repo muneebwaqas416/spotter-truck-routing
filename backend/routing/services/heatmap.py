@@ -8,7 +8,9 @@ from . import weather
 from .domain import LngLat
 from .risk import assess
 
-MAX_POINTS = 200  # bounds provider load; ~15-30 km spacing for a typical corridor
+# Every point is one weather call on a cache miss, and the free tier allows 600 a minute, so a
+# fresh heatmap stays well under that. ~20-40 km spacing for a typical corridor.
+MAX_POINTS = 120
 HOURS = 48
 
 

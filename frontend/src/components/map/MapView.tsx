@@ -4,7 +4,13 @@ import type { PickingInfo } from '@deck.gl/core'
 import { BitmapLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { MapboxOverlay, type MapboxOverlayProps } from '@deck.gl/mapbox'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import MapGL, { NavigationControl, Popup, useControl, type MapRef } from 'react-map-gl/maplibre'
+import MapGL, {
+  AttributionControl,
+  NavigationControl,
+  Popup,
+  useControl,
+  type MapRef,
+} from 'react-map-gl/maplibre'
 
 import type {
   AnalyzeResponse,
@@ -170,7 +176,10 @@ export function MapView({ analysis, heatmap, showHeatmap, dimmed }: MapViewProps
         style={{ width: '100%', height: '100%' }}
         onClick={() => selectedCheckpoint && dispatch(checkpointSelected(null))}
         onLoad={fitToRoutes}
+        attributionControl={false}
       >
+        {/* Open-Meteo's free data is CC BY 4.0, which requires attribution next to the map's own. */}
+        <AttributionControl customAttribution='<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather data by Open-Meteo.com</a>' />
         <NavigationControl position="top-right" showCompass={false} />
         <DeckOverlay
           layers={layers}

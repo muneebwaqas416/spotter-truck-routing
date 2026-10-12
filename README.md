@@ -35,9 +35,10 @@ displays what the API returns and has no copy of the rules.
 |---|---|---|
 | Routing | HERE Routing v8 (`transportMode=truck`) | Real truck routing that respects the vehicle's weight and returns up to 3 alternatives on long trips. OpenRouteService only gives alternatives on short trips. |
 | Geocoding | HERE Geocode + Autosuggest | Same key; also returns each place's IANA timezone |
-| Weather | Open-Meteo | Free, no key, 16-day hourly forecasts, many locations in one request |
+| Weather | Open-Meteo | Free, no key, hourly forecasts, many locations in one request |
 | Map tiles | OpenFreeMap | Free, no key |
 
+Weather data is by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0), credited on the map.
 API keys are used only by the backend. The browser only talks to the Django API.
 
 ## Risk rules
@@ -110,7 +111,7 @@ winner won, and each other route says what it lost on (e.g. "More Severe miles: 
 ## Heatmap (0–48 h)
 
 - The frontend asks for the routes' bounding box plus 0.5° of padding.
-- The backend builds a grid of up to 200 points over it, fetches each point's forecast once, and scores
+- The backend builds a grid of up to 120 points over it, fetches each point's forecast once, and scores
   all 49 hours with the same risk rules and the trip's load.
 - The slider only changes which hour is drawn; it never fetches again. The grid is drawn as a smooth,
   interpolated image, and points without data stay transparent.
@@ -152,7 +153,7 @@ the cache survives restarts. Measured locally with 2 gunicorn workers:
 Input is validated with DRF serializers:
 - `interval_mi` must be 10, 25 or 50.
 - `load_lb` must be 1–80,000.
-- The departure must be within the next 16 days.
+- The departure must be within the next 14 days.
 - Origin and destination must differ.
 
 Status codes:
@@ -163,6 +164,7 @@ Status codes:
 | 422 | No truck route found |
 | 429 | Rate-limited |
 | 502 | A provider failed |
+| 503 | A provider is rate-limiting us; `Retry-After` says when to retry |
 | 504 | A provider timed out |
 
 Errors never include tracebacks or provider details.
@@ -181,7 +183,8 @@ Errors never include tracebacks or provider details.
 
 ## Known limitations
 
-- **Forecast horizon:** 16 days. Checkpoints with ETAs beyond the forecast are Unknown.
+- **Forecast horizon:** 14 days. Open-Meteo forecasts 16, but anything over 14 days costs more than
+  one call per location (see below). Checkpoints with ETAs beyond the forecast are Unknown.
 - **Generated detours:** when HERE returns fewer than 3 routes, extra routes are forced through a
   point beside the main route's midpoint. The app tries 8% of the trip length first, then 15%, and
   keeps detours at most 1.5× the main route's length. These are labelled "(detour)", flagged in the
@@ -190,9 +193,15 @@ Errors never include tracebacks or provider details.
 - **The app ranks routes; it doesn't plan around weather.** If a storm covers all three routes, the
   app picks the least bad one. The "depart later" suggestion and the heatmap help choose a better time
   to leave instead.
-- **Heatmap resolution:** the 200-point cap means long corridors get a coarser grid (about 0.8°
+- **Heatmap resolution:** the 120-point cap means long corridors get a coarser grid (about 1.3°
   between points from Denver to the East Coast). Checkpoint risk is not affected, because each
   checkpoint's own forecast is fetched.
+- **Weather rate limits:** Open-Meteo's free tier is limited per IP: 600 calls a minute and 10,000 a
+  day, where each location in a request counts as one call. A new trip costs one call per 0.1° cell
+  along its routes, and a new heatmap up to 120. Repeated trips, load changes and slider moves come
+  from the cache and cost nothing. When the limit is hit, the API returns 503 with `Retry-After`, and
+  the UI counts down before retrying. The free tier is for non-commercial use; production use would
+  need Open-Meteo's paid plan, which only adds an API key.
 - **Weather precision:** forecasts are hourly and per 0.1° cell.
 - **Truck details:** only weight is sent to HERE. Height, axle count and hazmat restrictions are not
   modelled.

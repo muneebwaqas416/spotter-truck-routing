@@ -10,9 +10,12 @@ from typing import Any
 import httpx
 from django.conf import settings
 
-from routing.exceptions import ProviderError, ProviderTimeout
+from routing.exceptions import ProviderBusy, ProviderError, ProviderTimeout
 
 logger = logging.getLogger(__name__)
+
+# Open-Meteo's free tier limits calls per minute and sends no Retry-After header.
+DEFAULT_RETRY_AFTER_S = 60
 
 
 def get_json(provider: str, url: str, params: dict[str, Any]) -> Any:
@@ -28,8 +31,15 @@ def get_json(provider: str, url: str, params: dict[str, Any]) -> Any:
         logger.warning(
             "%s returned HTTP %s: %s", provider, response.status_code, response.text[:300]
         )
+        if response.status_code == 429:
+            raise ProviderBusy(provider, _retry_after(response))
         raise ProviderError(provider, f"HTTP {response.status_code}")
     try:
         return response.json()
     except ValueError as exc:
         raise ProviderError(provider, "response was not valid JSON") from exc
+
+
+def _retry_after(response: httpx.Response) -> int:
+    value = response.headers.get("Retry-After", "")
+    return int(value) if value.isdigit() else DEFAULT_RETRY_AFTER_S

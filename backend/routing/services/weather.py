@@ -21,7 +21,9 @@ PROVIDER = "weather"
 WEATHER_TTL_S = 30 * 60  # under Open-Meteo's ~hourly refresh
 GRID_DEG = 0.1  # ~11 km; nearby points share a forecast
 BATCH_SIZE = 100  # locations per request
-FORECAST_DAYS = 16
+# Open-Meteo bills each location as one call up to 14 days and more beyond that, so 14 days
+# keeps every location at exactly one call against the free tier's per-minute limit.
+FORECAST_DAYS = 14
 HOURLY_VARIABLES = "wind_speed_10m,wind_gusts_10m,rain,showers,snowfall"
 CM_PER_INCH = 2.54
 MM_PER_INCH = 25.4

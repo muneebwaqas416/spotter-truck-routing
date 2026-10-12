@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from routing.services.heatmap import MAX_POINTS
 from routing.tests.conftest import open_meteo_response, three_routes
 
 PLACES = {
@@ -134,6 +135,20 @@ def test_weather_timeout_returns_504_without_internals(providers):
     }
 
 
+@pytest.mark.parametrize(("retry_after", "expected"), [(None, "60"), ("30", "30")])
+def test_weather_rate_limit_returns_503_with_retry_after(providers, retry_after, expected):
+    """Open-Meteo's per-minute limit is temporary: tell the client to wait, not that it's down."""
+    headers = {"Retry-After": retry_after} if retry_after else {}
+    providers["weather"].mock(return_value=httpx.Response(429, headers=headers))
+    response = analyze(payload())
+    assert response.status_code == 503
+    assert response["Retry-After"] == expected
+    assert response.json() == {
+        "code": "provider_busy",
+        "detail": "The weather service is busy. Try again in a minute.",
+    }
+
+
 def test_routing_error_returns_502(providers):
     providers["routing"].mock(return_value=httpx.Response(500))
     response = analyze(payload())
@@ -201,10 +216,10 @@ def test_naive_departure_is_local_time_at_origin(providers):
 
 
 def test_departure_outside_forecast_window_is_a_field_error(providers):
-    too_far = (timezone.now() + timedelta(days=17)).isoformat()
+    too_far = (timezone.now() + timedelta(days=15)).isoformat()
     response = analyze(payload(departure_time=too_far))
     assert response.status_code == 400
-    assert response.json() == {"departure_time": ["Forecasts cover the next 16 days."]}
+    assert response.json() == {"departure_time": ["Forecasts cover the next 14 days."]}
 
 
 def test_routes_carry_ranking_notes_and_detour_labels(providers):
@@ -232,4 +247,4 @@ def test_heatmap_accepts_cross_country_corridor(providers):
         {"bbox": "-105.34,38.25,-73.51,42.26", "start": timezone.now().isoformat()},
     )
     assert response.status_code == 200
-    assert len(response.json()["points"]) <= 200
+    assert len(response.json()["points"]) <= MAX_POINTS

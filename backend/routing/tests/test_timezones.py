@@ -34,8 +34,8 @@ def test_unknown_zone_falls_back_to_utc():
     [
         (timedelta(hours=-1), True),  # within the grace period
         (timedelta(hours=-1, seconds=-1), False),
-        (timedelta(days=16), True),
-        (timedelta(days=16, seconds=1), False),
+        (timedelta(days=14), True),
+        (timedelta(days=14, seconds=1), False),
     ],
 )
 def test_departure_window_boundaries(offset, ok):

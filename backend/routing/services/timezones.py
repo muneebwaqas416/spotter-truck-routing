@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 logger = logging.getLogger(__name__)
 
-FORECAST_HORIZON = timedelta(days=16)  # Open-Meteo forecast range
+FORECAST_HORIZON = timedelta(days=14)  # matches weather.FORECAST_DAYS
 PAST_GRACE = timedelta(hours=1)  # tolerate "now" while the user is still typing
 
 
@@ -35,7 +35,7 @@ def localize(departure: datetime, tz_name: str) -> datetime:
 
 
 def check_departure_window(departure: datetime, now: datetime | None = None) -> None:
-    """Raise if an aware departure can't be forecast: in the past or beyond 16 days."""
+    """Raise if an aware departure can't be forecast: in the past or beyond the forecast."""
     now = now or datetime.now(UTC)
     if departure < now - PAST_GRACE:
         raise DepartureOutOfRange("Departure is in the past.")

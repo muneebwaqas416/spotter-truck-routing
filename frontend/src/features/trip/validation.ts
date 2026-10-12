@@ -4,8 +4,8 @@ import { addHours } from '@/lib/datetime'
 import type { AnalyzeRequest } from '@/redux/types'
 
 export const MAX_LOAD_LB = 80_000
-/** Open-Meteo forecasts reach 16 days ahead. */
-export const FORECAST_HORIZON_DAYS = 16
+/** Matches the backend's forecast window (14 days keeps Open-Meteo at one call per location). */
+export const FORECAST_HORIZON_DAYS = 14
 /** Small grace period so "now" doesn't fail while the user is typing. */
 const PAST_GRACE_HOURS = 1
 /**

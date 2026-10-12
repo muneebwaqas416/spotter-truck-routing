@@ -24,6 +24,8 @@ def test_batches_locations_normalizes_units_and_caches():
 
     assert route.call_count == 1
     assert route.calls[0].request.url.params["latitude"] == "39.7,40.5"
+    # Over 14 days Open-Meteo bills each location as more than one call.
+    assert route.calls[0].request.url.params["forecast_days"] == "14"
     assert sample.wind_mph == 38
     assert sample.snow_in_hr == pytest.approx(1.0)  # 2.54 cm → 1 in
     assert sample.forecast_time == NOW

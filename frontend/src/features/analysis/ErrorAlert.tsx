@@ -15,9 +15,11 @@ interface ErrorAlertProps {
 export function ErrorAlert({ error, onRetry }: ErrorAlertProps) {
   const description = describeError(error)
   const [showDetails, setShowDetails] = useState(false)
-  const waitSeconds = useCountdown(error.status === 429 ? (error.retryAfterSeconds ?? 30) : 0)
+  // Rate limits (ours: 429, a provider's: 503) clear on their own; count down instead of retrying early.
+  const rateLimited = error.status === 429 || error.status === 503
+  const waitSeconds = useCountdown(rateLimited ? (error.retryAfterSeconds ?? 30) : 0)
 
-  const icon = error.status === 'NETWORK_ERROR' ? WifiOff : error.status === 429 ? Timer : undefined
+  const icon = error.status === 'NETWORK_ERROR' ? WifiOff : rateLimited ? Timer : undefined
 
   return (
     <StatusAlert
