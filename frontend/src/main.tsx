@@ -17,7 +17,7 @@ createRoot(root).render(
     <Provider store={store}>
       <App />
       {/* One toast at a time keeps feedback readable next to the map controls. */}
-      <Toaster position="top-center" richColors visibleToasts={1} closeButton />
+      <Toaster position="top-center" richColors visibleToasts={3} closeButton />
     </Provider>
   </StrictMode>,
 )

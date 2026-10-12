@@ -49,6 +49,8 @@ export function useHeatmap(analysis: AnalyzeResponse | undefined) {
     isLoading: query.isFetching,
     error: query.isError ? (query.error as ApiError) : undefined,
     refetch: query.refetch,
+    /** Identifies the latest fetch, so its outcome is announced once. */
+    startedAt: query.startedTimeStamp,
     missingByHour,
   }
 }

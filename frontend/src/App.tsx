@@ -10,6 +10,7 @@ import { MapView } from '@/components/map/MapView'
 import { describeError } from '@/features/analysis/describeError'
 import { ForecastSlider } from '@/features/heatmap/ForecastSlider'
 import { useHeatmap } from '@/features/heatmap/useHeatmap'
+import { useHeatmapToasts } from '@/features/heatmap/useHeatmapToasts'
 import { SidePanel } from '@/features/trip/SidePanel'
 import {
   forecastHourChanged,
@@ -29,6 +30,7 @@ export default function App() {
   const forecastHour = useAppSelector((state) => state.trip.forecastHour)
   const legendOpen = useAppSelector((state) => state.trip.legendOpen)
   useAnalysisToasts()
+  useHeatmapToasts(heatmap)
 
   const heatmapStart = results ? heatmapRequestFor(results)?.start : undefined
 
