@@ -16,6 +16,7 @@ __pycache__/
 .vscode/*
 !.vscode/extensions.json
 
-# Local-only files
+# Local-only files (Claude Code context, agents and settings)
 CLAUDE.md
+.claude/
 docker-compose.yml
