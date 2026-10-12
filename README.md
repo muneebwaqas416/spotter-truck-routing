@@ -195,7 +195,7 @@ Errors never include tracebacks or provider details.
 - **The app ranks routes; it doesn't plan around weather.** If a storm covers all three routes, the
   app picks the least bad one. The "depart later" suggestion and the heatmap help choose a better time
   to leave instead.
-- **Heatmap resolution:** the 120-point cap means long corridors get a coarser grid (about 1.3°
+- **Heatmap resolution:** the 120-point cap means long corridors get a coarser grid (about 1.5°
   between points from Denver to the East Coast). Checkpoint risk is not affected, because each
   checkpoint's own forecast is fetched.
 - **Weather rate limits:** Open-Meteo's free tier is limited per IP: 600 calls a minute and 10,000 a

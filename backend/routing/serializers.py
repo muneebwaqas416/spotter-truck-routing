@@ -1,9 +1,10 @@
 """Request validation and response representation for the routing API."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from rest_framework import serializers
 
+from routing.services import timezones
 from routing.services.analysis import Analysis
 from routing.services.checkpoints import haversine_mi
 from routing.services.domain import Checkpoint, Suggestion
@@ -61,6 +62,13 @@ class HeatmapQuerySerializer(serializers.Serializer):
         if max_lon - min_lon > MAX_BBOX_DEGREES or max_lat - min_lat > MAX_BBOX_DEGREES:
             raise serializers.ValidationError(f"Area is larger than {MAX_BBOX_DEGREES}° per side.")
         return (min_lon, min_lat, max_lon, max_lat)
+
+    def validate_start(self, value: datetime) -> datetime:
+        # Outside the forecast every score is unknown, and far-future dates overflow the hour range.
+        first, last = timezones.forecast_window(datetime.now(UTC))
+        if not first <= value <= last:
+            raise serializers.ValidationError("Start must be within the forecast window.")
+        return value
 
 
 class GeocodeQuerySerializer(serializers.Serializer):

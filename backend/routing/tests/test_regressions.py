@@ -4,6 +4,7 @@ Each test pins a behaviour that was traced in the live output, so a change to it
 """
 
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 
 import pytest
 
@@ -174,3 +175,31 @@ def _open_meteo_location(rain=0.0, showers=0.0, snow_cm=0.0, hours=24) -> dict:
             "snowfall": [snow_cm] * hours,
         },
     }
+
+
+# --- QA review: heatmap grid covers the whole corridor ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bbox",
+    [
+        (-122.83, 25.26, -79.69, 48.11),  # Seattle-Miami: the grid stopped ~2.5° short of both
+        (-118.74, 33.55, -73.5, 41.2),  # Los Angeles-New York
+        (-100.0, 30.0, -99.7, 30.3),  # float noise dropped the last column
+        (-112.5, 40.2, -104.3, 41.8),
+        (0, 0, 0.5, 0.5),
+    ],
+)
+def test_heatmap_grid_reaches_every_edge_on_a_regular_spacing(bbox):
+    points = _grid(bbox)
+    lons = sorted({lon for lon, _ in points})
+    lats = sorted({lat for _, lat in points})
+    step = round(lons[1] - lons[0], 1)
+
+    assert len(points) == len(lons) * len(lats) <= MAX_POINTS
+    assert all(round(b - a, 1) == step for a, b in pairwise(lons))
+    assert all(round(b - a, 1) == step for a, b in pairwise(lats))
+    # Each sample is drawn half a step wide, so the outer samples must reach the bbox edges.
+    half = step / 2 + 1e-9
+    assert lons[0] - half <= bbox[0] and lons[-1] + half >= bbox[2]
+    assert lats[0] - half <= bbox[1] and lats[-1] + half >= bbox[3]

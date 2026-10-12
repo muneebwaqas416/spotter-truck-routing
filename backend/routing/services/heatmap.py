@@ -36,19 +36,34 @@ def corridor_heatmap(
 
 
 def _grid(bbox: tuple[float, float, float, float]) -> list[LngLat]:
-    """Regular grid aligned to the weather cache's 0.1° cells, at most MAX_POINTS points."""
+    """Regular grid on the weather cache's 0.1° cells covering the whole bbox, ≤ MAX_POINTS points.
+
+    The grid is centred on the bbox with enough rows and columns to reach both edges; the map
+    draws each sample as a cell half a step wide on either side, so the bbox is fully covered.
+    """
     min_lon, min_lat, max_lon, max_lat = bbox
     area = (max_lon - min_lon) * (max_lat - min_lat)
-    start_lon = round(min_lon / weather.GRID_DEG) * weather.GRID_DEG
-    start_lat = round(min_lat / weather.GRID_DEG) * weather.GRID_DEG
     step = max(weather.GRID_DEG, math.ceil(math.sqrt(area / MAX_POINTS) * 10) / 10)
-    # Edge rows/columns can push the count over the cap; widen the spacing until it fits.
-    while (cols := int((max_lon - start_lon) / step) + 1) * (
-        rows := int((max_lat - start_lat) / step) + 1
+    # Covering both edges adds a row/column; widen the spacing until the grid fits the cap.
+    while (cols := _axis_count(min_lon, max_lon, step)) * (
+        rows := _axis_count(min_lat, max_lat, step)
     ) > MAX_POINTS:
         step = round(step + weather.GRID_DEG, 1)
+    first_lon = _axis_start(min_lon, max_lon, step, cols)
+    first_lat = _axis_start(min_lat, max_lat, step, rows)
     return [
-        (round(start_lon + c * step, 1), round(start_lat + r * step, 1))
+        (round(first_lon + c * step, 1), round(first_lat + r * step, 1))
         for r in range(rows)
         for c in range(cols)
     ]
+
+
+def _axis_count(low: float, high: float, step: float) -> int:
+    # Rounding first stops float noise (0.3 / 0.1 = 2.9999…) from dropping a sample.
+    return math.ceil(round((high - low) / step, 6)) + 1
+
+
+def _axis_start(low: float, high: float, step: float, count: int) -> float:
+    """First sample, centred on the span and snapped to the 0.1° weather cells."""
+    first = (low + high) / 2 - (count - 1) * step / 2
+    return round(first / weather.GRID_DEG) * weather.GRID_DEG

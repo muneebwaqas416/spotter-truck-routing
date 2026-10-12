@@ -1,6 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-import type { PickingInfo } from '@deck.gl/core'
+import { COORDINATE_SYSTEM, type PickingInfo } from '@deck.gl/core'
 import { BitmapLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { MapboxOverlay, type MapboxOverlayProps } from '@deck.gl/mapbox'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
@@ -112,6 +112,9 @@ export function MapView({ analysis, heatmap, showHeatmap, dimmed }: MapViewProps
         bounds: heatImage.bounds,
         // Bilinear filtering turns the coarse forecast grid into a smooth surface.
         textureParameters: { minFilter: 'linear', magFilter: 'linear' },
+        // The grid is evenly spaced in latitude. By default the image is stretched evenly in
+        // Web Mercator, which drew rows up to ~50 mi north of their forecast point.
+        _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT,
       }),
     new PathLayer<RouteOption>({
       id: 'routes',

@@ -249,3 +249,20 @@ def test_heatmap_accepts_cross_country_corridor(providers):
     )
     assert response.status_code == 200
     assert len(response.json()["points"]) <= MAX_POINTS
+
+
+@pytest.mark.parametrize(
+    "start",
+    [
+        "9999-12-31T23:00:00Z",
+        (timezone.now() + timedelta(days=20)).isoformat(),
+        "2020-01-01T00:00:00Z",
+    ],
+)
+def test_heatmap_start_outside_forecast_is_a_field_error(start):
+    """Regression: year 9999 crashed with a 500 (OverflowError)."""
+    response = APIClient().get(
+        reverse("routing:heatmap"), {"bbox": "-105,39,-104,40", "start": start}
+    )
+    assert response.status_code == 400
+    assert "start" in response.json()
