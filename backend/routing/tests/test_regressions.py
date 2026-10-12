@@ -3,11 +3,12 @@
 Each test pins a behaviour that was traced in the live output, so a change to it is deliberate.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from routing.services.domain import Checkpoint, WeatherSample
+from routing.services import weather
+from routing.services.domain import Checkpoint, Place, RoutePath, WeatherSample
 from routing.services.heatmap import MAX_POINTS, _grid
 from routing.services.risk import RiskLevel, assess
 from routing.services.scoring import explain, rank, route_metrics, why_not
@@ -92,3 +93,84 @@ def test_why_not_names_severity_before_average():
 def test_heatmap_grid_never_exceeds_point_cap(bbox):
     points = _grid(bbox)
     assert 0 < len(points) <= MAX_POINTS
+
+
+# --- QA review: DST, float boundaries, nearest hour ------------------------------------------
+
+
+def test_eta_adds_real_elapsed_time_across_dst(monkeypatch):
+    """Regression: 4 h after 00:00 MDT on the fall-back night is 10:00 UTC, not 11:00."""
+    from routing.services import analysis
+
+    monkeypatch.setattr(analysis.timezones, "check_departure_window", lambda departure: None)
+    captured = {}
+
+    def fake_routes(origin, destination, start, load_lb):
+        captured["start"] = start
+        return [_straight_route(hours=4)]
+
+    monkeypatch.setattr(analysis.here, "geocode", lambda q: Place(q, (-105.0, 39.7), DENVER_TZ))
+    monkeypatch.setattr(analysis.here, "routes", fake_routes)
+    monkeypatch.setattr(analysis.weather, "forecasts", lambda positions: {})
+
+    result = analysis.analyze("A", "B", datetime(2026, 11, 1, 0, 0), 20_000, 50)
+
+    assert result.departure.utcoffset() == timedelta(hours=-6)  # still shown as MDT
+    arrival = result.routes[0].checkpoints[-1].eta
+    assert arrival.astimezone(UTC) == datetime(2026, 11, 1, 10, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("rain", "showers", "expected"),
+    [
+        (0.01, 0.09, RiskLevel.MODERATE),
+        (0.009, 0.091, RiskLevel.MODERATE),
+        (0.2, 0.05, RiskLevel.HIGH),
+    ],
+)
+def test_rain_plus_showers_on_a_threshold_is_not_understated(rain, showers, expected):
+    forecast = weather._parse(_open_meteo_location(rain=rain, showers=showers))
+    assert assess(forecast.at(T0), LOAD)[0] == expected
+
+
+@pytest.mark.parametrize(
+    ("snow_cm", "expected"), [(1.27, RiskLevel.MODERATE), (5.08, RiskLevel.SEVERE)]
+)
+def test_snow_converted_from_cm_on_a_threshold_is_not_understated(snow_cm, expected):
+    forecast = weather._parse(_open_meteo_location(snow_cm=snow_cm))
+    assert assess(forecast.at(T0), LOAD)[0] == expected
+
+
+@pytest.mark.parametrize(("minute", "hour"), [(29, 10), (30, 11), (31, 11)])
+def test_half_past_always_rounds_to_the_next_hour(minute, hour):
+    forecast = weather._parse(_open_meteo_location())
+    assert forecast.at(T0.replace(hour=10, minute=minute)).forecast_time.hour == hour
+    assert forecast.at(T0.replace(hour=11, minute=minute)).forecast_time.hour == hour + 1
+
+
+DENVER_TZ = "America/Denver"
+
+
+def _straight_route(hours: float) -> RoutePath:
+    coordinates = [(-105.0, 39.7), (-104.0, 39.7)]
+    return RoutePath(coordinates, 53.0, hours * 3600, [0.0, hours * 3600])
+
+
+def _open_meteo_location(rain=0.0, showers=0.0, snow_cm=0.0, hours=24) -> dict:
+    """One location starting at T0, in the units Open-Meteo declares."""
+    return {
+        "hourly_units": {
+            "wind_speed_10m": "mp/h",
+            "rain": "inch",
+            "showers": "inch",
+            "snowfall": "cm",
+        },
+        "hourly": {
+            "time": [int(T0.timestamp()) + h * 3600 for h in range(hours)],
+            "wind_speed_10m": [5.0] * hours,
+            "wind_gusts_10m": [7.0] * hours,
+            "rain": [rain] * hours,
+            "showers": [showers] * hours,
+            "snowfall": [snow_cm] * hours,
+        },
+    }

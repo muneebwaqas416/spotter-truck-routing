@@ -4,6 +4,7 @@ Each location's full hourly series is cached for WEATHER_TTL_S; lookups pick the
 the requested time, so a cached series never serves one hour's data for another hour.
 """
 
+import math
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -16,17 +17,18 @@ from routing.exceptions import ProviderError
 
 from .domain import MISSING_WEATHER, LngLat, WeatherSample
 from .http import get_json
+from .timezones import FORECAST_DAYS
 
 PROVIDER = "weather"
 WEATHER_TTL_S = 30 * 60  # under Open-Meteo's ~hourly refresh
 GRID_DEG = 0.1  # ~11 km; nearby points share a forecast
 BATCH_SIZE = 100  # locations per request
-# Open-Meteo bills each location as one call up to 14 days and more beyond that, so 14 days
-# keeps every location at exactly one call against the free tier's per-minute limit.
-FORECAST_DAYS = 14
 HOURLY_VARIABLES = "wind_speed_10m,wind_gusts_10m,rain,showers,snowfall"
 CM_PER_INCH = 2.54
 MM_PER_INCH = 25.4
+# Float sums and unit conversions land just under thresholds (0.01 + 0.09 = 0.0999…, 1.27 cm =
+# 0.4999… in), which would understate risk. Forecasts carry 2-3 decimals, so 4 is lossless.
+PRECISION = 4
 
 
 @dataclass(frozen=True)
@@ -39,7 +41,8 @@ class HourlyForecast:
     fetched_at: datetime
 
     def at(self, when: datetime) -> WeatherSample:
-        hour_epoch = round(when.timestamp() / 3600) * 3600
+        # Half past rounds up. round() rounds half to even: 10:30 → 10:00 but 11:30 → 12:00.
+        hour_epoch = math.floor(when.timestamp() / 3600 + 0.5) * 3600
         index = (hour_epoch - self.start_epoch) // 3600
         if not 0 <= index < len(self.wind_mph):
             return MISSING_WEATHER  # beyond the forecast horizon
@@ -112,7 +115,7 @@ def _parse(location: dict) -> HourlyForecast:
             wind_mph=hourly["wind_speed_10m"],
             gust_mph=hourly["wind_gusts_10m"],
             rain_in_hr=[
-                None if r is None or s is None else r + s
+                None if r is None or s is None else round(r + s, PRECISION)
                 for r, s in zip(rain, showers, strict=True)
             ],
             snow_in_hr=_to_inches(hourly["snowfall"], units["snowfall"]),
@@ -127,4 +130,4 @@ def _to_inches(values: list[float | None], unit: str) -> list[float | None]:
     factor = {"inch": 1.0, "in": 1.0, "cm": 1 / CM_PER_INCH, "mm": 1 / MM_PER_INCH}.get(unit)
     if factor is None:
         raise ProviderError(PROVIDER, f"unexpected precipitation unit {unit}")
-    return [None if v is None else v * factor for v in values]
+    return [None if v is None else round(v * factor, PRECISION) for v in values]

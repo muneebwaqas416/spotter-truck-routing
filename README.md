@@ -153,7 +153,8 @@ the cache survives restarts. Measured locally with 2 gunicorn workers:
 Input is validated with DRF serializers:
 - `interval_mi` must be 10, 25 or 50.
 - `load_lb` must be 1–80,000.
-- The departure must be within the next 14 days.
+- The departure must fall inside the forecast: from today 00:00 UTC (or 1 hour ago, whichever is
+  later) to 23:00 UTC on the 14th day.
 - Origin and destination must differ.
 
 Status codes:
@@ -183,7 +184,8 @@ Errors never include tracebacks or provider details.
 
 ## Known limitations
 
-- **Forecast horizon:** 14 days. Open-Meteo forecasts 16, but anything over 14 days costs more than
+- **Forecast horizon:** 14 whole UTC days from today 00:00, so the latest departure is 23:00 UTC on
+  day 14, not now + 14 days. Open-Meteo forecasts 16, but anything over 14 days costs more than
   one call per location (see below). Checkpoints with ETAs beyond the forecast are Unknown.
 - **Generated detours:** when HERE returns fewer than 3 routes, extra routes are forced through a
   point beside the main route's midpoint. The app tries 8% of the trip length first, then 15%, and

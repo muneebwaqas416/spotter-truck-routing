@@ -219,7 +219,8 @@ def test_departure_outside_forecast_window_is_a_field_error(providers):
     too_far = (timezone.now() + timedelta(days=15)).isoformat()
     response = analyze(payload(departure_time=too_far))
     assert response.status_code == 400
-    assert response.json() == {"departure_time": ["Forecasts cover the next 14 days."]}
+    [message] = response.json()["departure_time"]
+    assert message.startswith("Forecasts only reach")
 
 
 def test_routes_carry_ranking_notes_and_detour_labels(providers):

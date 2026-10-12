@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 logger = logging.getLogger(__name__)
 
-FORECAST_HORIZON = timedelta(days=14)  # matches weather.FORECAST_DAYS
+# Open-Meteo bills each location as one call up to 14 days and more beyond that.
+FORECAST_DAYS = 14
 PAST_GRACE = timedelta(hours=1)  # tolerate "now" while the user is still typing
 
 
@@ -34,10 +35,21 @@ def localize(departure: datetime, tz_name: str) -> datetime:
     return departure.replace(tzinfo=zone(tz_name))
 
 
+def forecast_window(now: datetime) -> tuple[datetime, datetime]:
+    """First and last hourly forecast instants: the forecast starts at 00:00 UTC today and covers
+    FORECAST_DAYS whole days, so it ends at 23:00 UTC on the last day, not at now + 14 days."""
+    start = now.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + timedelta(days=FORECAST_DAYS) - timedelta(hours=1)
+
+
 def check_departure_window(departure: datetime, now: datetime | None = None) -> None:
     """Raise if an aware departure can't be forecast: in the past or beyond the forecast."""
     now = now or datetime.now(UTC)
-    if departure < now - PAST_GRACE:
+    first, last = forecast_window(now)
+    if departure < max(now - PAST_GRACE, first):
         raise DepartureOutOfRange("Departure is in the past.")
-    if departure > now + FORECAST_HORIZON:
-        raise DepartureOutOfRange(f"Forecasts cover the next {FORECAST_HORIZON.days} days.")
+    if departure > last:
+        raise DepartureOutOfRange(
+            f"Forecasts only reach {last:%b} {last.day}, {last:%H:%M} UTC. "
+            "Pick an earlier departure."
+        )

@@ -1,7 +1,7 @@
 """Orchestrates one analysis: geocode → routes → checkpoints → weather → risk → ranking."""
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from string import ascii_uppercase
 
 from routing.exceptions import PlaceNotFound
@@ -45,9 +45,12 @@ def analyze(
     # Wall-clock departures are local to the origin; check the window once the zone is known.
     departure = timezones.localize(departure, origin.time_zone)
     timezones.check_departure_window(departure)
-    paths = here.routes(origin, destination, departure, load_lb)
+    # Compute in UTC: adding a duration to a zoned datetime follows the local wall clock, which
+    # shifts every ETA by an hour across a DST change. The local value is kept for display.
+    start = departure.astimezone(UTC)
+    paths = here.routes(origin, destination, start, load_lb)
 
-    sampled = [sample_checkpoints(path, interval_mi, departure) for path in paths]
+    sampled = [sample_checkpoints(path, interval_mi, start) for path in paths]
     found = weather.forecasts(c.position for checkpoints in sampled for c in checkpoints)
 
     routes = []
